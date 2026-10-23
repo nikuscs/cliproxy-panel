@@ -9,7 +9,7 @@ import type { QuotaFileEntry } from '../../logic';
 export function useDevinQuotaAutoLoad(
   entries: QuotaFileEntry[],
   disabled: boolean,
-  loadQuota: (targets: QuotaFileEntry[]) => Promise<void>
+  loadQuota: (targets: QuotaFileEntry[]) => Promise<unknown>
 ) {
   const attempted = useRef(new Set<string>());
   const session = useQuotaStore((state) => state.cacheGeneration);

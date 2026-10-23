@@ -24,3 +24,33 @@ export type QuotaSortMode = (typeof QUOTA_SORT_MODES)[number];
 
 /** 与 useRevealGroup 的 GROUP_MAX_TOTAL 一致：卡片级联总预算 360ms。 */
 export const CARD_ENTRANCE_BUDGET_MS = 360;
+
+/** Page entry refreshes credentials whose shown data is older than this. */
+export const QUOTA_STALE_MS = 5 * 60_000;
+
+/** Card grid (upstream) or one row per credential. */
+export const QUOTA_VIEW_MODES = ['ledger', 'cards'] as const;
+
+export type QuotaViewMode = (typeof QUOTA_VIEW_MODES)[number];
+
+/** Forecast horizons offered by the "Next" select, in days. */
+export const FORECAST_RANGE_DAYS = [1, 7] as const;
+
+export type ForecastRangeDays = (typeof FORECAST_RANGE_DAYS)[number];
+
+/** Drain-rate lookback choices, in hours. */
+export const FORECAST_LOOKBACK_HOURS = [6, 24, 72] as const;
+
+export type ForecastLookbackHours = (typeof FORECAST_LOOKBACK_HOURS)[number];
+
+/** Forecast chart accent per provider (dark-first, matches the brand marks). */
+export const FORECAST_ACCENTS: Record<QuotaProviderType, string> = {
+  claude: '#e07b5f',
+  antigravity: '#5b8def',
+  codex: '#8f8cf7',
+  xai: '#d4d4d8',
+  kimi: '#4f9cff',
+  devin: '#3ecf8e',
+  meta: '#4a7dff',
+  plugin: '#a1a1aa',
+};

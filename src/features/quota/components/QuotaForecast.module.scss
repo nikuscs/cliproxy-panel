@@ -1,0 +1,622 @@
+@use '../controls' as *;
+
+/* ============================================================
+ * Provider forecast: summary line, chart bar (tabs · legend · range),
+ * SVG chart and footer. Compact by design: the summary, chart and the
+ * provider's rows should fit one laptop screen. Accent colour comes from
+ * the provider (inline style / --forecast-accent).
+ * ============================================================ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panelEmpty {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ---------- summary ---------- */
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 40px;
+}
+
+.provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 112px;
+}
+
+.providerName {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.totals {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.bigNumber {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacity {
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rate {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-left: 16px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rateHint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* 7-day / 5-hour: a small segmented switch next to the numbers. */
+.windowToggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+
+  button {
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-hover) var(--ease-out-strong),
+      color var(--dur-hover) var(--ease-out-strong);
+
+    &:hover {
+      color: var(--text-primary);
+    }
+  }
+
+  .windowActive {
+    background: var(--bg-primary);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease-out-strong),
+    color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+/* ---------- chart bar: tabs · legend · range ---------- */
+
+.chartBar {
+  display: flex;
+  align-items: center;
+  gap: 8px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tabs {
+  display: flex;
+  gap: 20px;
+  align-self: stretch;
+}
+
+.tab {
+  margin-bottom: -1px;
+  padding: 6px 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.tabActive {
+  font-weight: 600;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.legendDash {
+  width: 14px;
+  border-top: 2px dashed currentColor;
+}
+
+.range {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rangeFixed {
+  padding: 0 10px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.quietSelect {
+  @include quiet-select;
+}
+
+.quietMenu {
+  @include quiet-menu;
+}
+
+/* ---------- chart ---------- */
+
+.chart {
+  position: relative;
+  width: 100%;
+
+  svg {
+    display: block;
+    overflow: visible;
+  }
+}
+
+.gridLine {
+  stroke: color-mix(in srgb, var(--border-color) 70%, transparent);
+  stroke-width: 1;
+}
+
+.baseLine {
+  stroke: var(--border-color);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.historyLine,
+.projectionLine {
+  fill: none;
+  stroke: var(--forecast-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.projectionLine {
+  stroke-dasharray: 6 5;
+  stroke-linecap: butt;
+}
+
+.referenceLine {
+  stroke: var(--text-tertiary);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 4;
+  opacity: 0.8;
+}
+
+.chartNote {
+  fill: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.referenceLabel {
+  fill: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.legendReference {
+  color: var(--text-tertiary);
+
+  .legendDash {
+    border-top-width: 1.5px;
+    border-top-style: dotted;
+  }
+}
+
+.nowLine {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.nowLabel {
+  fill: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.hover line {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+}
+
+.readout {
+  position: absolute;
+  top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.readoutValue {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- footer + settings ---------- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  font-size: 13px;
+}
+
+.resetNote {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "At this pace: …" outlook, always visible (also when collapsed). */
+.pace {
+  margin: -2px 0 2px;
+  line-height: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+}
+
+/* "1 of 2 accounts out now · back in …", ahead of the pace itself */
+.paceNow {
+  color: var(--viz-failure);
+
+  &::after {
+    content: ' · ';
+    color: var(--text-tertiary);
+  }
+}
+
+/* The second part of the pace (all out / unused), after a dot. */
+.paceMore::before {
+  content: ' · ';
+  color: var(--text-tertiary);
+}
+
+.pacePrefix {
+  color: var(--text-tertiary);
+
+  &::after {
+    content: ' ';
+  }
+}
+
+.paceOut {
+  color: var(--quota-medium-color);
+}
+
+.paceLasts {
+  color: color-mix(in srgb, var(--viz-success) 70%, var(--text-tertiary));
+}
+
+.settingsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease-out-strong),
+    color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.caret {
+  transform: rotate(-90deg);
+  transition: transform var(--dur-hover) var(--ease-out-strong);
+}
+
+.caretOpen {
+  transform: rotate(0deg);
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.settingHint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* ---------- split: the All tab's compact per-provider block ---------- */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'summary bar'
+    'summary chart';
+  gap: 4px 28px;
+  padding: 10px 0;
+
+  > .summary {
+    grid-area: summary;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: center;
+    gap: 6px 10px;
+    min-height: 0;
+  }
+
+  .totals {
+    order: 3;
+    width: 100%;
+  }
+
+  .windowToggle {
+    order: 1;
+  }
+
+  .iconButton {
+    order: 2;
+  }
+
+  .bigNumber {
+    font-size: 26px;
+  }
+
+  .capacity {
+    font-size: 14px;
+  }
+
+  .rate {
+    flex-wrap: wrap;
+    gap: 0 8px;
+    width: 100%;
+    margin-left: 0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  > .chartBar {
+    grid-area: bar;
+    border-bottom: 0;
+  }
+
+  .tab {
+    padding: 2px 0 4px;
+    font-size: 12.5px;
+  }
+
+  > .chart {
+    grid-area: chart;
+  }
+
+  .pace {
+    order: 4;
+    width: 100%;
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    line-height: 17px;
+  }
+
+  .resetNote {
+    order: 5;
+    width: 100%;
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+  }
+}
+
+.panelEmpty {
+  padding: 8px 0;
+}
+
+.panelEmpty .provider {
+  min-width: 240px;
+  margin-right: 16px;
+}
+
+@media (max-width: 900px) {
+  .chartBar {
+    flex-wrap: wrap;
+  }
+
+  .legend {
+    order: 3;
+    width: 100%;
+    padding-bottom: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  .summary {
+    align-items: flex-start;
+  }
+
+  .bigNumber {
+    font-size: 28px;
+  }
+
+  .capacity,
+  .rate {
+    font-size: 14px;
+  }
+
+  .rate {
+    margin-left: 0;
+  }
+
+  .settings {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret,
+  .iconButton,
+  .tab,
+  .settingsToggle {
+    transition: none;
+  }
+}

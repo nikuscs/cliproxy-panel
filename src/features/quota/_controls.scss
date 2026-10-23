@@ -1,0 +1,84 @@
+/* ============================================================
+ * Quota page controls: quiet text-with-chevron selects and their menus.
+ * Applied through Select's `className` (trigger wrap) and `menuClassName`
+ * (portaled listbox), so the shared Select elsewhere is unchanged.
+ * ============================================================ */
+
+@mixin quiet-select {
+  flex: 0 0 auto;
+  width: auto;
+
+  button[aria-haspopup='listbox'] {
+    gap: 6px;
+    width: auto;
+    height: 30px;
+    padding: 0 6px 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-hover) var(--ease-out-strong),
+      color var(--dur-hover) var(--ease-out-strong);
+
+    &:hover {
+      border-color: transparent;
+      background: var(--bg-hover);
+    }
+
+    &:focus {
+      box-shadow: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+
+    &[aria-expanded='true'] {
+      border-color: transparent;
+      background: var(--bg-hover);
+      box-shadow: none;
+    }
+  }
+}
+
+@mixin quiet-menu {
+  gap: 1px;
+  min-width: max-content;
+  padding: 4px;
+  border-radius: 10px;
+  scrollbar-gutter: auto;
+
+  [role='option'] {
+    display: flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 28px 0 10px;
+    border: 0;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 450;
+    white-space: nowrap;
+  }
+
+  [role='option'][aria-selected='true'] {
+    position: relative;
+    background: var(--bg-hover);
+    font-weight: 600;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 10px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+  }
+}

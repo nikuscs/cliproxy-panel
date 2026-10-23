@@ -28,6 +28,8 @@ import {
   DAY_MS,
 } from '../quotaTimelineModel';
 import type { TimelineLane, TimelineMode } from '../quotaTimelineModel';
+import { usePrivacyRevealed } from '../privacy';
+import { PrivateValue } from './PrivateValue';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
 import styles from './QuotaTimeline.module.scss';
@@ -131,12 +133,15 @@ export function QuotaTimeline({
   const cells = useMemo(() => {
     const zoomed = mode === 'session';
     const count = zoomed ? span.days * 4 : span.days;
-    const cellMs = (span.endMs - span.startMs) / count;
     const todayStart = new Date(now).setHours(0, 0, 0, 0);
 
     return Array.from({ length: count }, (_, index) => {
-      const at = span.startMs + index * cellMs;
-      const date = new Date(at);
+      // Step by calendar days/hours, not fixed milliseconds: a DST change
+      // inside the span would otherwise repeat or skip a day label.
+      const date = new Date(span.startMs);
+      if (zoomed) date.setHours(date.getHours() + index * 6);
+      else date.setDate(date.getDate() + index);
+      const at = date.getTime();
       const isDayStart = !zoomed || date.getHours() === 0;
       return {
         at,
@@ -320,6 +325,8 @@ interface LaneProps {
 
 function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneProps) {
   const { t, i18n } = useTranslation();
+  // Window tooltips are plain text: they name the account only when revealed.
+  const titleName = usePrivacyRevealed() ? `${lane.displayName}\n` : '';
 
   const windows = useMemo(
     () => projectLane(lane, span.startMs, span.endMs, now, mode),
@@ -349,9 +356,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
       <div className={styles.laneHead}>
         <div className={styles.laneTop}>
           <span className={styles.laneDot} />
-          <span className={styles.laneName} title={lane.displayName}>
-            {lane.displayName}
-          </span>
+          <PrivateValue className={styles.laneName} value={lane.displayName} />
           {periodLabel && <span className={styles.lanePeriod}>{periodLabel}</span>}
         </div>
         <div className={styles.laneLimits}>
@@ -400,7 +405,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 key={window.startMs}
                 className={`${styles.window} ${styles[`window${capitalize(window.state)}`]}`}
                 style={{ left: `${window.leftPercent}%`, width: `${window.widthPercent}%` }}
-                title={`${lane.displayName}\n${formatDay(window.startMs)} ${formatTime(
+                title={`${titleName}${formatDay(window.startMs)} ${formatTime(
                   window.startMs
                 )} → ${formatDay(window.endMs)} ${formatTime(window.endMs)}${
                   window.remaining !== null ? `\n${window.remaining}% remaining` : ''

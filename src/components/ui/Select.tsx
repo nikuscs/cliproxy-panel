@@ -24,6 +24,8 @@ interface SelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** Extra class for the portaled listbox, for page-local menu styling. */
+  menuClassName?: string;
   disabled?: boolean;
   ariaLabel?: string;
   ariaLabelledBy?: string;
@@ -84,6 +86,7 @@ export function Select({
   onChange,
   placeholder,
   className,
+  menuClassName,
   disabled = false,
   ariaLabel,
   ariaLabelledBy,
@@ -281,7 +284,7 @@ export function Select({
     isOpen && dropdownStyle ? (
       <div
         ref={dropdownRef}
-        className={styles.dropdown}
+        className={`${styles.dropdown} ${menuClassName ?? ''}`.trim()}
         id={listboxId}
         role="listbox"
         aria-label={ariaLabel}

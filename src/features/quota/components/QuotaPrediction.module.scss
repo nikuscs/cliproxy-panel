@@ -1,0 +1,32 @@
+/* One compact secondary line; colour carries the outcome. */
+
+.prediction {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lasts {
+  color: color-mix(in srgb, var(--viz-success) 70%, var(--text-tertiary));
+}
+
+.runsOut {
+  color: var(--quota-medium-color);
+}
+
+.exhausted {
+  color: var(--viz-failure);
+}
+
+/* Ledger meters are narrow: allow a second line instead of cutting the date. */
+.wrap {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

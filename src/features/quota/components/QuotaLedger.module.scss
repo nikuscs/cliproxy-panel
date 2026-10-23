@@ -1,0 +1,434 @@
+@use '../../../styles/mixins' as *;
+
+/* ============================================================
+ * Ledger view: one-line provider group card + one compact row per
+ * credential. Row = identity | meters (3 per line, wraps) | resets + actions.
+ * Secondary text shares one size (12px) and one colour scale.
+ * ============================================================ */
+
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- provider group card ---------- */
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+}
+
+.groupName {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.groupCount {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  white-space: nowrap;
+
+  &::before {
+    content: '·';
+    margin-right: 10px;
+  }
+}
+
+.groupLimits {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 20px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.groupLimit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+
+  strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.groupCapacity {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.groupToggle {
+  flex-shrink: 0;
+  margin-left: auto;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease-out-strong),
+    color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+/* ---------- row ---------- */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 8px 24px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 1px;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: $font-mono;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaLine {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 15px;
+  white-space: nowrap;
+
+  > span + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--text-tertiary);
+  }
+}
+
+.email {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
+}
+
+.alert {
+  color: var(--viz-failure);
+}
+
+/* ---------- meters ---------- */
+
+.meters {
+  display: grid;
+  /* Capped columns: on wide screens label and value stay close together. */
+  grid-template-columns: repeat(3, minmax(0, 250px));
+  justify-content: start;
+  gap: 10px 18px;
+  min-width: 0;
+}
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.meterFull {
+  .meterHead,
+  .track,
+  .meterReset {
+    opacity: 0.45;
+  }
+}
+
+.meterHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  line-height: 17px;
+}
+
+.meterLabel {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meterValue {
+  flex-shrink: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 4px;
+  margin: 2px 0;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.fillHigh {
+  background: var(--viz-success);
+}
+
+.fillMedium {
+  background: var(--quota-medium-color);
+}
+
+.fillLow {
+  background: var(--viz-failure);
+}
+
+.meterReset {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meterResetText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meterRate {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.idle,
+.muted,
+.error {
+  grid-column: 1 / -1;
+  align-self: center;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+.idle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--border-hover);
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.error {
+  overflow: hidden;
+  color: var(--viz-failure);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- side: resets + actions ---------- */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.resetsRemaining {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-right: -7px;
+}
+
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease-out-strong),
+    color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.spinning {
+  animation: quota-ledger-spin 0.8s linear infinite;
+}
+
+@keyframes quota-ledger-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1180px) {
+  .row {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 2.4fr);
+  }
+
+  .side {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    grid-column: 1;
+    justify-content: space-between;
+  }
+
+  .meters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .group {
+    flex-wrap: wrap;
+  }
+
+  .groupLimits {
+    justify-content: flex-start;
+    width: 100%;
+    order: 5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .textButton,
+  .groupToggle {
+    transition: none;
+  }
+
+  .spinning {
+    animation: none;
+  }
+}

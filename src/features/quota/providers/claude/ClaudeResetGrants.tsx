@@ -16,6 +16,7 @@ import {
   ResetGrantPreflightError,
   resetGrantFailureMessageKey,
 } from './resetGrantOperations';
+import { plainIdentity, usePrivacyRevealed } from '../../privacy';
 import { selectResetGrant } from './selectResetGrant';
 import { readResetGrantsForCard, scheduleResetGrantRead } from './resetGrantReads';
 
@@ -28,6 +29,7 @@ export function useClaudeResetGrants(
   onRefresh: () => void
 ) {
   const { t } = useTranslation();
+  const revealNames = usePrivacyRevealed();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const [session] = useState(() => apiClient.getConnectionRevision());
   const sessionActive =
@@ -89,7 +91,7 @@ export function useClaudeResetGrants(
     showConfirmation({
       title: t('claude_reset.title'),
       message: t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
-        name: file.name,
+        name: plainIdentity(file.name, revealNames),
       }),
       confirmText: t(pending ? 'claude_reset.retry' : 'claude_reset.confirm'),
       variant: 'primary',

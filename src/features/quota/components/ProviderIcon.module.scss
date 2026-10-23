@@ -1,0 +1,33 @@
+.wrap {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--bg-tertiary);
+}
+
+.small {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+
+  .icon {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+
+.fallback {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}

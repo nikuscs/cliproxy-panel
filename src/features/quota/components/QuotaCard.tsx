@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import type { ClaudeQuotaState, ResolvedTheme } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
-import { getQuotaDisplayName } from '@/utils/quota/identity';
+import { getQuotaCacheKey, getQuotaDisplayName } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
   getThemeSurfaceIconBackground,
@@ -17,10 +17,17 @@ import {
 } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
-import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import type { QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
+import { stripCredentialExtension } from '../display';
+import { PrivateValue } from './PrivateValue';
+import { meterAsOf, meterLabel, orderedMeters, readQuotaMeters } from '../forecast/quotaMeters';
+import { QuotaEntryActions } from './QuotaEntryActions';
+import { QuotaPrediction } from './QuotaPrediction';
+import { resolveMeterRate } from '../forecast/forecastWindows';
+import type { SnapshotsFor } from '../hooks/useQuotaHistory';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
 
@@ -33,6 +40,9 @@ export type QuotaCardProps = {
   resolvedTheme: ResolvedTheme;
   canRefresh: boolean;
   resetting: boolean;
+  snapshotsFor: SnapshotsFor;
+  lookbackMs: number;
+  nowMs: number;
   /** Initial cascade delay; null disables entrance motion for later mounts. */
   entranceDelayMs?: number | null;
   onRefresh: () => void;
@@ -46,6 +56,9 @@ export function QuotaCard(props: QuotaCardProps) {
     resolvedTheme,
     canRefresh,
     resetting,
+    snapshotsFor,
+    lookbackMs,
+    nowMs,
     entranceDelayMs,
     onRefresh,
     onReset,
@@ -55,7 +68,7 @@ export function QuotaCard(props: QuotaCardProps) {
   const file = entry.file;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
-  const displayName = getQuotaDisplayName(file);
+  const displayName = stripCredentialExtension(getQuotaDisplayName(file));
 
   // Capture the entrance delay only at mount, without a render-time ref read.
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
@@ -104,11 +117,12 @@ export function QuotaCard(props: QuotaCardProps) {
       )}
     </>
   ) : undefined;
-  const showReset =
-    status === 'success' &&
-    Boolean(adapter.resetQuota) &&
-    quota !== undefined &&
-    Boolean(adapter.canResetQuota?.(quota));
+  // "If you continue at this rate" for each window that has a known length.
+  const predictedMeters = orderedMeters(
+    readQuotaMeters(entry.type, quota).map((meter) => meterAsOf(meter, nowMs))
+  ).filter(
+    (meter) => meter.resetAtMs !== null && meter.periodHours !== null && meter.remaining < 100
+  );
 
   return (
     <article
@@ -131,9 +145,7 @@ export function QuotaCard(props: QuotaCardProps) {
             <span className={styles.iconFallback}>{typeLabel.slice(0, 1).toUpperCase()}</span>
           )}
         </span>
-        <span className={styles.fileName} title={displayName}>
-          {displayName}
-        </span>
+        <PrivateValue className={styles.fileName} value={displayName} />
       </header>
 
       <div className={styles.body}>
@@ -186,42 +198,39 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
       </div>
 
+      {predictedMeters.length > 0 && (
+        <div className={styles.predictions}>
+          {predictedMeters.map((meter) => (
+            <div key={meter.id} className={styles.predictionRow}>
+              <span className={styles.predictionLabel}>{meterLabel(t, meter)}</span>
+              <QuotaPrediction
+                meter={meter}
+                nowMs={nowMs}
+                rate={resolveMeterRate(
+                  meter,
+                  snapshotsFor(getQuotaCacheKey(file), meter.id),
+                  nowMs,
+                  lookbackMs
+                )}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {status !== 'idle' && (
         <footer className={styles.actionRow}>
-          {entry.type === 'claude' && (
-            <button
-              type="button"
-              className={styles.actionPill}
-              disabled={claudeReset.blocked}
-              onClick={claudeReset.confirm}
-              title={t(`claude_reset.${claudeReset.buttonLabel}`)}
-            >
-              <IconRefreshCw size={13} className={claudeReset.busy ? styles.spinning : undefined} />
-              {t(`claude_reset.${claudeReset.buttonLabel}`)}
-            </button>
-          )}
-          {showReset && (
-            <button
-              type="button"
-              className={styles.actionPill}
-              onClick={onReset}
-              disabled={!canRefresh || loading || resetting}
-              title={t('codex_quota.reset_button')}
-            >
-              <IconRefreshCw size={13} className={resetting ? styles.spinning : undefined} />
-              {t('codex_quota.reset_button')}
-            </button>
-          )}
-          <button
-            type="button"
-            className={styles.actionPill}
-            onClick={onRefresh}
-            disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting || claudeReset.busy)}
-            title={t('auth_files.quota_refresh_hint')}
-          >
-            <IconRefreshCw size={13} className={loading ? styles.spinning : undefined} />
-            {t('auth_files.quota_refresh_single')}
-          </button>
+          <QuotaEntryActions
+            entry={entry}
+            quota={quota}
+            claudeReset={claudeReset}
+            canRefresh={canRefresh}
+            resetting={resetting}
+            buttonClassName={styles.actionPill}
+            spinningClassName={styles.spinning}
+            onRefresh={onRefresh}
+            onReset={onReset}
+          />
         </footer>
       )}
     </article>

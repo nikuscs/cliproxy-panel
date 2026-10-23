@@ -4,6 +4,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import path from 'path';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { quotaMockApi } from './src/features/quota/dev/mockManagementApi';
 
 // Get version from environment, git tag, or package.json
 function getVersion(): string {
@@ -41,7 +42,9 @@ export default defineConfig({
     react(),
     viteSingleFile({
       removeViteModuleLoader: true
-    })
+    }),
+    // Dev-only mock Management API for the Quota page (`bun run dev:mock`).
+    process.env.VITE_QUOTA_MOCK === '1' && quotaMockApi()
   ],
   define: {
     __APP_VERSION__: JSON.stringify(getVersion())

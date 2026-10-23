@@ -228,6 +228,35 @@
 
 /* ---------- footer 动作 ---------- */
 
+/* "If you continue at this rate": one quiet line per window */
+.predictions {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.predictionRow {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.predictionLabel {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.predictionRow > span:last-child {
+  text-align: right;
+}
+
 .actionRow {
   display: flex;
   justify-content: flex-end;

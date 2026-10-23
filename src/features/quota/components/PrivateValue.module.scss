@@ -1,0 +1,32 @@
+/* Blurred private value; the value is in the DOM but never readable or copyable. */
+
+.value {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: filter var(--dur-hover) var(--ease-out-strong);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.blurred {
+  filter: blur(5px);
+  user-select: none;
+  -webkit-user-select: none;
+
+  &:hover {
+    filter: blur(4px);
+  }
+}
+
+.revealed {
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value {
+    transition: none;
+  }
+}

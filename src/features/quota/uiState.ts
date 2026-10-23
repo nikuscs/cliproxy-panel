@@ -1,9 +1,16 @@
 import {
+  FORECAST_LOOKBACK_HOURS,
+  FORECAST_RANGE_DAYS,
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
+  QUOTA_VIEW_MODES,
+  type ForecastLookbackHours,
+  type ForecastRangeDays,
   type QuotaSortMode,
   type QuotaTabId,
+  type QuotaViewMode,
 } from './constants';
+import type { QuotaProviderType } from './providers/types';
 
 /** 额度页 UI 偏好：会话级持久化（sessionStorage），跨会话不携带。 */
 export type QuotaUiState = {
@@ -50,6 +57,81 @@ export const writeQuotaUiState = (state: QuotaUiState) => {
   try {
     const next = { ...readQuotaUiState(), ...state };
     window.sessionStorage.setItem(QUOTA_UI_STATE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+};
+
+/**
+ * Durable display preferences (localStorage): unlike the tab and sort above,
+ * these describe how the user likes the page, not where they left it.
+ */
+export type QuotaPreferences = {
+  showEmails: boolean;
+  /** View on a single provider tab. */
+  viewMode: QuotaViewMode;
+  /** View on the All tab (upstream card grid by default). */
+  allViewMode: QuotaViewMode;
+  forecastRangeDays: ForecastRangeDays;
+  forecastLookbackHours: ForecastLookbackHours;
+  /** Providers whose forecast panel is collapsed. */
+  collapsedForecasts: QuotaProviderType[];
+  /** Providers that had credentials at the last load (tabs shown before the list loads). */
+  knownProviders: QuotaProviderType[];
+};
+
+const QUOTA_PREFERENCES_KEY = 'quotaPage.preferences';
+
+const DEFAULT_QUOTA_PREFERENCES: QuotaPreferences = {
+  showEmails: false,
+  viewMode: 'ledger',
+  allViewMode: 'cards',
+  forecastRangeDays: 7,
+  forecastLookbackHours: 24,
+  collapsedForecasts: [],
+  knownProviders: [],
+};
+
+const providerList = (value: unknown): QuotaProviderType[] =>
+  Array.isArray(value)
+    ? value.filter((id): id is QuotaProviderType => isQuotaTabId(id) && id !== 'all')
+    : [];
+
+const oneOf = <T>(values: readonly T[], value: unknown, fallback: T): T =>
+  values.includes(value as T) ? (value as T) : fallback;
+
+export const readQuotaPreferences = (): QuotaPreferences => {
+  const defaults = DEFAULT_QUOTA_PREFERENCES;
+  if (typeof window === 'undefined') return defaults;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(QUOTA_PREFERENCES_KEY) ?? '{}');
+    return {
+      showEmails: parsed.showEmails === true,
+      viewMode: oneOf(QUOTA_VIEW_MODES, parsed.viewMode, defaults.viewMode),
+      allViewMode: oneOf(QUOTA_VIEW_MODES, parsed.allViewMode, defaults.allViewMode),
+      forecastRangeDays: oneOf(
+        FORECAST_RANGE_DAYS,
+        parsed.forecastRangeDays,
+        defaults.forecastRangeDays
+      ),
+      forecastLookbackHours: oneOf(
+        FORECAST_LOOKBACK_HOURS,
+        parsed.forecastLookbackHours,
+        defaults.forecastLookbackHours
+      ),
+      collapsedForecasts: providerList(parsed.collapsedForecasts),
+      knownProviders: providerList(parsed.knownProviders),
+    };
+  } catch {
+    return defaults;
+  }
+};
+
+export const writeQuotaPreferences = (preferences: Partial<QuotaPreferences>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const next = { ...readQuotaPreferences(), ...preferences };
+    window.localStorage.setItem(QUOTA_PREFERENCES_KEY, JSON.stringify(next));
   } catch {
     // ignore
   }
