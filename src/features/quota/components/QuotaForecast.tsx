@@ -19,6 +19,8 @@ import {
   FORECAST_ACCENTS,
   FORECAST_LOOKBACK_HOURS,
   FORECAST_RANGE_DAYS,
+  DRAIN_RANGE_HOURS,
+  type DrainRangeHours,
   type ForecastLookbackHours,
   type ForecastRangeDays,
 } from '../constants';
@@ -27,6 +29,7 @@ import type { QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 import {
   buildQuotaForecast,
+  drainSeries,
   type LiveReading,
   type QuotaForecast as QuotaForecastModel,
 } from '../forecast/forecastModel';
@@ -241,6 +244,8 @@ export function QuotaForecast(props: QuotaForecastProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The user's 7-day / 5-hour choice; null follows the window closer to running out. */
   const [windowChoice, setWindowChoice] = useState<ForecastWindow | null>(null);
+  /** The user's drain-chart range; null follows the recorded history. */
+  const [drainRangeChoice, setDrainRangeChoice] = useState<DrainRangeHours | null>(null);
 
   const weeklyRangeMs = rangeDays * DAY_MS;
   const accent = FORECAST_ACCENTS[provider];
@@ -253,6 +258,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
       // A 5-hour sawtooth is unreadable over a week: that view is the next 24h.
       const rangeMs = window === 'session' ? SESSION_RANGE_MS : weeklyRangeMs;
       const pastMs = rangeMs / 6;
+      const windowHistory = snapshotsForWindow(history, window);
       const live = entries
         .map((entry): LiveReading | null => {
           const meter = meterForWindow(
@@ -280,14 +286,13 @@ export function QuotaForecast(props: QuotaForecastProps) {
       const rule = windowMeasurement(window, lookbackMs);
       const forecast = buildQuotaForecast({
         live,
-        history: snapshotsForWindow(history, window),
+        history: windowHistory,
         nowMs,
         rangeMs,
         lookbackMs: rule.lookbackMs,
         enoughMs: rule.enoughMs,
-        pastMs,
       });
-      return { live, forecast, rangeMs, pastMs };
+      return { live, forecast, rangeMs, pastMs, windowHistory };
     };
     return { weekly: build('weekly'), session: build('session') };
   }, [entries, history, lookbackMs, nowMs, quotaFor, snapshotsFor, weeklyRangeMs]);
@@ -299,11 +304,28 @@ export function QuotaForecast(props: QuotaForecastProps) {
       : windowChoice === 'weekly'
         ? 'weekly'
         : closerToRunningOut(views.weekly.forecast, hasSession ? views.session.forecast : null);
-  const { live, forecast, rangeMs, pastMs } = views[window];
+  const { live, forecast, rangeMs, pastMs, windowHistory } = views[window];
+
+  // The drain chart looks back: by default as far as the recorded readings go.
+  const recordedMs = windowHistory.length
+    ? nowMs - Math.min(...windowHistory.map((snapshot) => snapshot.ts))
+    : 0;
+  const drainRange =
+    drainRangeChoice ??
+    DRAIN_RANGE_HOURS.find((hours) => hours * HOUR_MS >= recordedMs) ??
+    DRAIN_RANGE_HOURS[DRAIN_RANGE_HOURS.length - 1];
+  const drainPast = useMemo(
+    () => drainSeries(windowHistory, nowMs, drainRange * HOUR_MS),
+    [windowHistory, nowMs, drainRange]
+  );
 
   const rangeOptions = FORECAST_RANGE_DAYS.map((days) => ({
     value: String(days),
     label: t(`quota_management.forecast_range_${days}`),
+  }));
+  const drainRangeOptions = DRAIN_RANGE_HOURS.map((hours) => ({
+    value: String(hours),
+    label: t(`quota_management.forecast_drain_range_${hours}`),
   }));
   const lookbackOptions = FORECAST_LOOKBACK_HOURS.map((hours) => ({
     value: String(hours),
@@ -335,11 +357,12 @@ export function QuotaForecast(props: QuotaForecastProps) {
     Math.max(
       drain.ratePerHour,
       drain.windowAverage,
-      ...forecast.drainHistory.flat().map((point) => point.v)
+      ...drainPast.segments.flat().map((point) => point.v)
     ) * 1.3
   );
   const measuringNote =
-    chartTab === 'drain' && forecast.drainHistory.length === 0
+    // A line needs two points; fewer is a note, not an empty plot.
+    chartTab === 'drain' && drainPast.segments.flat().length < 2
       ? t('quota_management.forecast_measuring', { count: forecast.readings })
       : null;
   const chartIsRemaining = chartTab === 'remaining';
@@ -432,7 +455,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
             </div>
             {!split && (
               <div className={styles.legend}>
-                {(chartIsRemaining || measured || forecast.drainHistory.length > 0) && (
+                {(chartIsRemaining || measured || drainPast.segments.length > 0) && (
                   <span className={styles.legendItem}>
                     <span className={styles.legendDot} style={{ background: accent }} />
                     {t(
@@ -455,42 +478,52 @@ export function QuotaForecast(props: QuotaForecastProps) {
                 )}
               </div>
             )}
-            <div className={styles.range}>
-              <span>{t('quota_management.forecast_next')}</span>
-              {window === 'session' ? (
-                <span className={styles.rangeFixed}>{t('quota_management.forecast_range_1')}</span>
-              ) : (
+            {chartIsRemaining ? (
+              <div className={styles.range}>
+                <span>{t('quota_management.forecast_next')}</span>
+                {window === 'session' ? (
+                  <span className={styles.rangeFixed}>
+                    {t('quota_management.forecast_range_1')}
+                  </span>
+                ) : (
+                  <Select
+                    value={String(rangeDays)}
+                    options={rangeOptions}
+                    onChange={(value) => onRangeDaysChange(Number(value) as ForecastRangeDays)}
+                    ariaLabel={t('quota_management.forecast_range_label')}
+                    className={styles.quietSelect}
+                    menuClassName={styles.quietMenu}
+                    fullWidth={false}
+                    size="sm"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className={styles.range}>
+                <span>{t('quota_management.forecast_last')}</span>
                 <Select
-                  value={String(rangeDays)}
-                  options={rangeOptions}
-                  onChange={(value) => onRangeDaysChange(Number(value) as ForecastRangeDays)}
-                  ariaLabel={t('quota_management.forecast_range_label')}
+                  value={String(drainRange)}
+                  options={drainRangeOptions}
+                  onChange={(value) => setDrainRangeChoice(Number(value) as DrainRangeHours)}
+                  ariaLabel={t('quota_management.forecast_drain_range_label')}
                   className={styles.quietSelect}
                   menuClassName={styles.quietMenu}
                   fullWidth={false}
                   size="sm"
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <QuotaForecastChart
             height={chartHeight}
-            startMs={nowMs - pastMs}
-            endMs={nowMs + rangeMs}
+            // Drain is measured from the past: that chart ends at now.
+            startMs={chartIsRemaining ? nowMs - pastMs : drainPast.startMs}
+            endMs={chartIsRemaining ? nowMs + rangeMs : nowMs}
             nowMs={nowMs}
             yMax={chartIsRemaining ? Math.max(forecast.capacity, 100) : drainMax}
-            history={chartIsRemaining ? forecast.history : forecast.drainHistory}
-            projection={
-              chartIsRemaining
-                ? forecast.projection
-                : measured
-                  ? [
-                      { t: nowMs, v: drain.ratePerHour },
-                      { t: nowMs + rangeMs, v: drain.ratePerHour },
-                    ]
-                  : []
-            }
+            history={chartIsRemaining ? forecast.history : measuringNote ? [] : drainPast.segments}
+            projection={chartIsRemaining ? forecast.projection : []}
             reference={
               chartIsRemaining
                 ? null

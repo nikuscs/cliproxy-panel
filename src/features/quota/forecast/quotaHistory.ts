@@ -62,8 +62,20 @@ function openDb(): Promise<IDBDatabase | null> {
         store.createIndex('connection', 'connection');
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve(null);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Let a newer tab upgrade the schema instead of blocking it.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => {
+      // Try again on the next call rather than staying without history.
+      dbPromise = null;
+      resolve(null);
+    };
   });
   return dbPromise;
 }

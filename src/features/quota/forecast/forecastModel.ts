@@ -63,7 +63,6 @@ export interface QuotaForecast {
   /** Percent points per hour across the provider, with where it comes from. */
   drain: ProviderDrain;
   history: ChartPoint[][];
-  drainHistory: ChartPoint[][];
   projection: ChartPoint[];
   nextReset: ResetEvent | null;
   /** When the whole provider hits 0% inside the range, if it does. */
@@ -88,8 +87,6 @@ export interface ForecastInput {
   rangeMs: number;
   /** Window the drain rate is measured over. */
   lookbackMs: number;
-  /** Visible past on the chart; the measured drain series covers exactly this. */
-  pastMs: number;
   /** Recorded coverage needed before the measured rate replaces the average. */
   enoughMs: number;
 }
@@ -214,28 +211,47 @@ export function measureDrain(
   return { ratePerHour: consumed / (coveredMs / HOUR_MS), coveredMs };
 }
 
-/** Drain rate per bucket for the "Drain rate" chart; uncovered buckets are gaps. */
-export function drainHistory(
-  history: QuotaSnapshot[],
-  fromMs: number,
-  toMs: number,
-  bucketMs: number
-): ChartPoint[][] {
+/** Drain buckets across the shown span: enough for a line, not so many it turns to noise. */
+const DRAIN_BUCKETS = 36;
+const MIN_DRAIN_BUCKET_MS = 10 * MINUTE_MS;
+/** Each point averages this many buckets back, so 1% steps read as a rate, not spikes. */
+const DRAIN_SMOOTHING_BUCKETS = 3;
+/** The drain chart spans at least this much, even with a few minutes of readings. */
+const MIN_DRAIN_SPAN_MS = HOUR_MS;
+
+export interface DrainSeries {
+  /** Left edge of the chart; the right edge is now. */
+  startMs: number;
+  segments: ChartPoint[][];
+}
+
+/**
+ * Measured drain over the past, for the "Drain rate" chart. It covers the
+ * recorded readings (at most `rangeMs` back), sampled every span/36 (at least
+ * 10 min); each point is the trailing average over three samples. Points join
+ * inside a run of readings; a silence over HISTORY_GAP_MS starts a new line.
+ */
+export function drainSeries(history: QuotaSnapshot[], nowMs: number, rangeMs: number): DrainSeries {
+  const earliestMs = history.reduce((earliest, snapshot) => Math.min(earliest, snapshot.ts), nowMs);
+  const startMs = Math.max(nowMs - rangeMs, Math.min(earliestMs, nowMs - MIN_DRAIN_SPAN_MS));
+  const bucketMs = Math.max(MIN_DRAIN_BUCKET_MS, (nowMs - startMs) / DRAIN_BUCKETS);
+  const windowMs = bucketMs * DRAIN_SMOOTHING_BUCKETS;
+
   const segments: ChartPoint[][] = [];
   let current: ChartPoint[] = [];
-  // A bucket counts once a twelfth of it is covered (20 min of a 4h bucket).
-  const minCoveredMs = bucketMs / 12;
-  for (let start = fromMs; start < toMs; start += bucketMs) {
-    const measured = measureDrain(history, start, Math.min(start + bucketMs, toMs), minCoveredMs);
-    if (measured === null) {
-      if (current.length > 0) segments.push(current);
+  for (let t = startMs + bucketMs; t < nowMs + bucketMs; t += bucketMs) {
+    const at = Math.min(t, nowMs);
+    const measured = measureDrain(history, at - windowMs, at, windowMs / 6);
+    if (measured === null) continue;
+    const last = current[current.length - 1];
+    if (last && at - last.t > HISTORY_GAP_MS) {
+      segments.push(current);
       current = [];
-      continue;
     }
-    current.push({ t: start + bucketMs / 2, v: measured.ratePerHour });
+    current.push({ t: at, v: measured.ratePerHour });
   }
   if (current.length > 0) segments.push(current);
-  return segments;
+  return { startMs, segments };
 }
 
 /**
@@ -367,7 +383,7 @@ export function projectQuota(
 }
 
 export function buildQuotaForecast(input: ForecastInput): QuotaForecast {
-  const { live, history, nowMs, rangeMs, lookbackMs, pastMs, enoughMs } = input;
+  const { live, history, nowMs, rangeMs, lookbackMs, enoughMs } = input;
   const drain = currentDrain(live, history, nowMs, lookbackMs, enoughMs);
   const { points, resets } = projectQuota(live, drain.ratePerHour, nowMs, nowMs + rangeMs);
   const emptyPoint = points.find((point) => point.t > nowMs && point.v < 0.5);
@@ -377,13 +393,6 @@ export function buildQuotaForecast(input: ForecastInput): QuotaForecast {
     remaining: live.reduce((total, reading) => total + reading.remaining, 0),
     drain,
     history: aggregateHistory(history.filter((snapshot) => snapshot.ts <= nowMs)),
-    // Only the visible past: off-screen buckets must not set the axis scale.
-    drainHistory: drainHistory(
-      history,
-      nowMs - pastMs,
-      nowMs,
-      Math.max(15 * MINUTE_MS, pastMs / 12)
-    ),
     readings: new Set(history.filter((snapshot) => snapshot.ts <= nowMs).map((s) => s.ts)).size,
     projection: points,
     nextReset: resets.find((event) => event.gain > 0.5) ?? null,

@@ -370,7 +370,11 @@ export function QuotaPage() {
 
   // Recorded history for every provider with credentials, shared by the
   // forecast panels, ledger rows and cards (one rate rule everywhere).
-  const { historyFor, snapshotsFor } = useQuotaHistory(
+  const {
+    historyFor,
+    snapshotsFor,
+    loaded: historyLoaded,
+  } = useQuotaHistory(
     connection,
     providersWithCredentials,
     clockNow -
@@ -580,7 +584,22 @@ export function QuotaPage() {
             />
           </div>
 
-          {!loading && hydrated && forecastGroups.length > 0 && (
+          {/* A placeholder until cached quota and recorded history are both in. */}
+          {!loading && (!hydrated || !historyLoaded) && forecastGroups.length > 0 && (
+            <div className={styles.forecasts} aria-busy="true">
+              {forecastGroups.map((group) => (
+                <Skeleton
+                  key={group.provider}
+                  height={
+                    tab === 'all' ? ALL_TAB_CHART_HEIGHT + 40 : PROVIDER_TAB_CHART_HEIGHT + 150
+                  }
+                  rounded={14}
+                />
+              ))}
+            </div>
+          )}
+
+          {!loading && hydrated && historyLoaded && forecastGroups.length > 0 && (
             <div className={styles.forecasts}>
               {forecastGroups.map((group) => (
                 <QuotaForecast

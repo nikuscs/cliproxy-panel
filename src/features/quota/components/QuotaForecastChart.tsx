@@ -19,7 +19,7 @@ import { formatOutlookTime, resolveLocale } from '../display';
 import styles from './QuotaForecast.module.scss';
 
 const PAD = { top: 10, right: 8, bottom: 22, left: 44 };
-const TICK_STEPS = [3, 6, 12, 24, 48].map((hours) => hours * HOUR_MS);
+const TICK_STEPS = [1, 3, 6, 12, 24, 48].map((hours) => hours * HOUR_MS);
 const MAX_X_TICKS = 6;
 
 export interface QuotaForecastChartProps {
@@ -117,6 +117,8 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
     (fraction) => fraction * yMax
   );
   const nowX = x(nowMs);
+  // A past-only chart (drain) ends at now: keep its label and note inside the plot.
+  const nowAtEdge = nowMs >= endMs;
 
   const tickLabel = (ms: number, step: number) =>
     new Date(ms).toLocaleString(
@@ -243,13 +245,22 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
 
           {/* Bottom of the plot, clear of the reference line in the upper part. */}
           {note && (
-            <text className={styles.chartNote} x={nowX + 6} y={baseline - 8}>
+            <text
+              className={styles.chartNote}
+              x={nowAtEdge ? PAD.left + 8 : nowX + 6}
+              y={baseline - 8}
+            >
               {note}
             </text>
           )}
 
           <line className={styles.nowLine} x1={nowX} x2={nowX} y1={PAD.top} y2={baseline} />
-          <text className={styles.nowLabel} x={nowX + 6} y={PAD.top + 10}>
+          <text
+            className={styles.nowLabel}
+            x={nowAtEdge ? nowX - 6 : nowX + 6}
+            y={PAD.top + 10}
+            textAnchor={nowAtEdge ? 'end' : 'start'}
+          >
             {t('quota_management.forecast_now')}
           </text>
 

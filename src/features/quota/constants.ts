@@ -43,6 +43,11 @@ export const FORECAST_LOOKBACK_HOURS = [6, 24, 72] as const;
 
 export type ForecastLookbackHours = (typeof FORECAST_LOOKBACK_HOURS)[number];
 
+/** How far back the "Drain rate" chart looks, in hours. */
+export const DRAIN_RANGE_HOURS = [6, 24, 168] as const;
+
+export type DrainRangeHours = (typeof DRAIN_RANGE_HOURS)[number];
+
 /** Forecast chart accent per provider (dark-first, matches the brand marks). */
 export const FORECAST_ACCENTS: Record<QuotaProviderType, string> = {
   claude: '#e07b5f',

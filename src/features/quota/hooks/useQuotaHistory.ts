@@ -1,7 +1,9 @@
 /**
  * Recorded quota history for the providers on screen, shared by the forecast
  * panels, the ledger rows and the cards so every rate comes from the same
- * readings. Reloads after each recorded write (`revision`).
+ * readings. Reloads after each recorded write (`revision`). `loaded` turns
+ * true once the first read for these providers is in, so the forecast never
+ * draws an empty chart that fills a moment later.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,6 +22,9 @@ export function useQuotaHistory(
 ) {
   const [history, setHistory] = useState<Partial<Record<QuotaProviderType, QuotaSnapshot[]>>>({});
   const providerKey = providers.join(',');
+  const readKey = `${connection}|${providerKey}`;
+  /** The connection and providers the current `history` was read for. */
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const since = Math.floor(sinceMs / SINCE_STEP_MS) * SINCE_STEP_MS;
 
   useEffect(() => {
@@ -29,6 +34,7 @@ export function useQuotaHistory(
       (results) => {
         if (cancelled) return;
         setHistory(Object.fromEntries(list.map((provider, index) => [provider, results[index]])));
+        setLoadedKey(`${connection}|${list.join(',')}`);
       }
     );
     return () => {
@@ -58,7 +64,7 @@ export function useQuotaHistory(
     [byMeter]
   );
 
-  return { historyFor, snapshotsFor };
+  return { historyFor, snapshotsFor, loaded: loadedKey === readKey };
 }
 
 export type SnapshotsFor = ReturnType<typeof useQuotaHistory>['snapshotsFor'];
