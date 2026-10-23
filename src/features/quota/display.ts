@@ -7,7 +7,7 @@ import { DAY_MS, HOUR_MS, MINUTE_MS } from '@/utils/time/durations';
 
 const EMAIL_PATTERN = /([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 
-/** Mask every email in `text` to its first character and domain: `t•••@t3.gg`. */
+/** Mask every email in `text` to its first character and domain: `a•••@example.com`. */
 export const maskEmails = (text: string): string => text.replace(EMAIL_PATTERN, '$1•••@$2');
 
 /** Credential files are `<account>.json`; the extension is noise in a label. */
