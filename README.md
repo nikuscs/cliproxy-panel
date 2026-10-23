@@ -15,7 +15,7 @@ burn-rate predictions and privacy blur. Ships as a single HTML file.
 
 </div>
 
-![Quota forecast for one provider](docs/screenshots/quota-provider.png)
+![Quota forecast for Claude accounts](docs/screenshots/quota.png)
 
 ## What it adds
 
@@ -31,8 +31,6 @@ This is a fork of the official [CLI Proxy API Management Center](https://github.
 - **Cached on load.** Last known values show immediately, then refresh in the background.
 - **Privacy blur.** Emails and account names are blurred by default. Click one to reveal it, or use "Show emails".
 - **Ledger view.** One compact row per account, next to the original card grid.
-
-![All providers](docs/screenshots/quota-all.png)
 
 ## Install
 
