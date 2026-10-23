@@ -75,4 +75,6 @@ bun run verify     # tests, lint and build
 
 ## Credits
 
+The forecast design is inspired by a custom CLIProxyAPI quota dashboard shared by [Theo Browne](https://github.com/t3dotgg).
+
 Built on the [CLI Proxy API Management Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center) by Router-For.ME, for [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI). MIT licensed, see [LICENSE](LICENSE).
