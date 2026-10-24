@@ -29,6 +29,7 @@ import {
 } from '../quotaTimelineModel';
 import type { TimelineLane, TimelineMode } from '../quotaTimelineModel';
 import { usePrivacyRevealed } from '../privacy';
+import { meterPercentLabel, shownPercent, useMeterDisplay } from '../meterDisplay';
 import { PrivateValue } from './PrivateValue';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -327,6 +328,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
   const { t, i18n } = useTranslation();
   // Window tooltips are plain text: they name the account only when revealed.
   const titleName = usePrivacyRevealed() ? `${lane.displayName}\n` : '';
+  const { mode: displayMode } = useMeterDisplay();
 
   const windows = useMemo(
     () => projectLane(lane, span.startMs, span.endMs, now, mode),
@@ -363,7 +365,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
           {lane.limits.map((limit) => (
             <span key={limit.label} className={styles.laneLimit}>
               {lane.provider === 'meta' ? t(limit.label) : limit.label}{' '}
-              <b>{limit.remaining}%</b>
+              <b>{shownPercent(limit.remaining, displayMode)}%</b>
             </span>
           ))}
         </div>
@@ -408,7 +410,9 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 title={`${titleName}${formatDay(window.startMs)} ${formatTime(
                   window.startMs
                 )} → ${formatDay(window.endMs)} ${formatTime(window.endMs)}${
-                  window.remaining !== null ? `\n${window.remaining}% remaining` : ''
+                  window.remaining === null
+                    ? ''
+                    : `\n${meterPercentLabel(t, window.remaining, displayMode, `${window.remaining}% remaining`)}`
                 }`}
               >
                 {/* Only the API-reported current window has meaningful usage;
@@ -421,7 +425,9 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 )}
                 {showLabel && (
                   <span className={styles.windowLabel}>
-                    {window.remaining !== null ? `${window.remaining}% · ` : ''}
+                    {window.remaining !== null
+                      ? `${shownPercent(window.remaining, displayMode)}% · `
+                      : ''}
                     {endText}
                   </span>
                 )}

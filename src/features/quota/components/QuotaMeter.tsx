@@ -8,28 +8,38 @@
 
 import type { CSSProperties } from 'react';
 import type { QuotaClassMap } from '../types';
+import { shownPercent, useMeterDisplay } from '../meterDisplay';
 
 export const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
 export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 30;
 
 export interface QuotaMeterProps {
+  /** Remaining percent. */
   percent: number | null;
   classes: QuotaClassMap;
   index?: number;
+  /** The window id, so a window running out at this pace shows red. */
+  meterId?: string;
 }
 
-export function QuotaMeter({ percent, classes, index }: QuotaMeterProps) {
+export function QuotaMeter({ percent, classes, index, meterId }: QuotaMeterProps) {
+  const { mode, atPace } = useMeterDisplay();
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const normalized = percent === null ? null : clamp(percent, 0, 100);
+  // Colour follows what is left; a window that runs out before its reset at
+  // this pace is red even with plenty left.
   const fillClass =
     normalized === null
       ? classes.quotaBarFillMedium
-      : normalized >= QUOTA_PROGRESS_HIGH_THRESHOLD
-        ? classes.quotaBarFillHigh
-        : normalized >= QUOTA_PROGRESS_MEDIUM_THRESHOLD
-          ? classes.quotaBarFillMedium
-          : classes.quotaBarFillLow;
-  const widthPercent = Math.round((normalized ?? 0) * 100) / 100;
+      : meterId !== undefined && atPace.has(meterId)
+        ? classes.quotaBarFillLow
+        : normalized >= QUOTA_PROGRESS_HIGH_THRESHOLD
+          ? classes.quotaBarFillHigh
+          : normalized >= QUOTA_PROGRESS_MEDIUM_THRESHOLD
+            ? classes.quotaBarFillMedium
+            : classes.quotaBarFillLow;
+  const widthPercent =
+    Math.round((normalized === null ? 0 : shownPercent(normalized, mode)) * 100) / 100;
   const style: CSSProperties & { '--meter-index'?: number } = { width: `${widthPercent}%` };
   if (index !== undefined) {
     style['--meter-index'] = index;

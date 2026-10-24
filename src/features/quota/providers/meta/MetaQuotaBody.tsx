@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { MetaQuotaState } from '@/types';
 import { useNow } from '@/hooks/useNow';
 import { buildResetDisplay } from '@/utils/quota';
@@ -10,6 +11,7 @@ import type { QuotaBodyProps } from '../../types';
 
 export function MetaQuotaBody({ quota, classes }: QuotaBodyProps<MetaQuotaState>) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   const now = useNow();
   const soonestRowId = useMemo(
     () => pickUrgentRowId(collectQuotaRowInstants('meta', quota), now),
@@ -54,7 +56,12 @@ export function MetaQuotaBody({ quota, classes }: QuotaBodyProps<MetaQuotaState>
                 <span className={classes.quotaPercent}>
                   {remaining === null
                     ? t('meta_quota.unknown')
-                    : t('meta_quota.remaining', { percent: Number(remaining.toFixed(1)) })}
+                    : meterPercentLabel(
+                        t,
+                        remaining,
+                        mode,
+                        t('meta_quota.remaining', { percent: Number(remaining.toFixed(1)) })
+                      )}
                 </span>
                 {resetDisplay && (
                   <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />

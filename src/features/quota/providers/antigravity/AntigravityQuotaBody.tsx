@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { TFunction } from 'i18next';
 import type { AntigravityQuotaState, AntigravityQuotaSubscription } from '@/types';
 import { QuotaMeter } from '../../components/QuotaMeter';
@@ -93,6 +94,7 @@ const getAntigravityPlanLabel = (
 
 export function AntigravityQuotaBody({ quota, classes }: QuotaBodyProps<AntigravityQuotaState>) {
   const { t } = useTranslation();
+  const { mode } = useMeterDisplay();
   const groups = quota.groups ?? [];
   const planLabel = getAntigravityPlanLabel(quota.subscription, t);
   const normalizedPlan = quota.subscription?.plan?.toLowerCase() ?? '';
@@ -178,9 +180,12 @@ export function AntigravityQuotaBody({ quota, classes }: QuotaBodyProps<Antigrav
                 const percent = clamped * 100;
                 const percentLabel = shouldShowAntigravityQuotaAvailable(bucket, group.buckets)
                   ? t('antigravity_quota.quota_available')
-                  : t('antigravity_quota.remaining_percent', {
-                      percent: Math.round(percent),
-                    });
+                  : meterPercentLabel(
+                      t,
+                      percent,
+                      mode,
+                      t('antigravity_quota.remaining_percent', { percent: Math.round(percent) })
+                    );
                 const resetLabel = formatAntigravityResetLabel(bucket.resetTime, t, nowMs);
                 const bucketLabel = translateAntigravityQuotaLabel(
                   bucket.label,

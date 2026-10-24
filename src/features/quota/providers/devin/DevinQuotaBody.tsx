@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { DevinQuotaState } from '@/types';
 import { useNow } from '@/hooks/useNow';
 import { buildResetDisplay } from '@/utils/quota';
@@ -9,6 +10,7 @@ import type { QuotaBodyProps } from '../../types';
 
 export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaState>) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   const now = useNow();
   const locale = i18n.resolvedLanguage;
   const urgentRow = pickUrgentRowId(collectQuotaRowInstants('devin', quota), now);
@@ -44,7 +46,12 @@ export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaStat
                 <span className={classes.quotaPercent}>
                   {window.remainingPercent === null
                     ? t('devin_quota.unavailable')
-                    : `${window.remainingPercent}%`}
+                    : meterPercentLabel(
+                        t,
+                        window.remainingPercent,
+                        mode,
+                        `${window.remainingPercent}%`
+                      )}
                 </span>
                 {reset ? (
                   <QuotaResetLabel display={reset} classes={classes} soon={soon} />
@@ -60,7 +67,12 @@ export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaStat
               aria-valuemax={window.remainingPercent === null ? undefined : 100}
               aria-valuenow={window.remainingPercent ?? undefined}
             >
-              <QuotaMeter percent={window.remainingPercent} classes={classes} index={index} />
+              <QuotaMeter
+                percent={window.remainingPercent}
+                classes={classes}
+                index={index}
+                meterId={window.id}
+              />
             </div>
           </div>
         );

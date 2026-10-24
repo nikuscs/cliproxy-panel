@@ -22,6 +22,8 @@ import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
 import { stripCredentialExtension } from '../display';
+import { MeterDisplayContext, useMeterDisplay } from '../meterDisplay';
+import { runsOutAtPace, windowBurn } from '../forecast/burnRate';
 import { PrivateValue } from './PrivateValue';
 import { meterAsOf, meterLabel, orderedMeters, readQuotaMeters } from '../forecast/quotaMeters';
 import { QuotaEntryActions } from './QuotaEntryActions';
@@ -64,6 +66,7 @@ export function QuotaCard(props: QuotaCardProps) {
     onReset,
   } = props;
   const { t } = useTranslation();
+  const { mode } = useMeterDisplay();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const retainedClaudeUsage =
@@ -123,6 +126,22 @@ export function QuotaCard(props: QuotaCardProps) {
   ).filter(
     (meter) => meter.resetAtMs !== null && meter.periodHours !== null && meter.remaining < 100
   );
+  const meterRates = predictedMeters.map((meter) => ({
+    meter,
+    rate: resolveMeterRate(
+      meter,
+      snapshotsFor(getQuotaCacheKey(file), meter.id),
+      nowMs,
+      lookbackMs
+    ),
+  }));
+  // Bars of windows that empty before their reset at this pace turn red.
+  const atPace = new Set(
+    meterRates
+      .filter(({ meter, rate }) => runsOutAtPace(windowBurn(meter, nowMs, rate.ratePerHour)))
+      .map(({ meter }) => meter.id)
+  );
+  const meterDisplay = { mode, atPace };
 
   return (
     <article
@@ -148,71 +167,64 @@ export function QuotaCard(props: QuotaCardProps) {
         <PrivateValue className={styles.fileName} value={displayName} />
       </header>
 
-      <div className={styles.body}>
-        {status === 'idle' ? (
-          <button
-            type="button"
-            className={styles.idleBody}
-            onClick={onRefresh}
-            disabled={!canRefresh}
-          >
-            <IconRefreshCw size={15} aria-hidden="true" className={styles.idleGlyph} />
-            <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
-          </button>
-        ) : loading && !retainedClaudeUsage ? (
-          <div className={styles.skeleton} aria-busy="true">
-            <span className={styles.srOnly}>{t(`${adapter.i18nPrefix}.loading`)}</span>
-            {[0, 1].map((row) => (
-              <div key={row} className={styles.skeletonRow} aria-hidden="true">
-                <span className={styles.skeletonLabel} />
-                <span className={styles.skeletonTrack} />
-              </div>
-            ))}
-          </div>
-        ) : status === 'error' ? (
-          <div className={styles.errorStrip} role="alert">
-            {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
-          </div>
-        ) : quota && !retainedClaudeUsage ? (
-          <adapter.Body
-            quota={quota}
-            classes={quotaClasses}
-            planItems={claudePlanItems}
-            afterPlan={claudeAfterPlan}
-          />
-        ) : !retainedClaudeUsage ? (
-          <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
-        ) : null}
-        {loading && retainedClaudeUsage && (
-          <div role="status" aria-busy="true" className={quotaClasses.quotaMessage}>
-            {t(`${adapter.i18nPrefix}.loading`)}
-          </div>
-        )}
-        {retainedClaudeUsage && quota && (
-          <adapter.Body
-            quota={quota}
-            classes={quotaClasses}
-            planItems={claudePlanItems}
-            afterPlan={claudeAfterPlan}
-          />
-        )}
-      </div>
+      <MeterDisplayContext.Provider value={meterDisplay}>
+        <div className={styles.body}>
+          {status === 'idle' ? (
+            <button
+              type="button"
+              className={styles.idleBody}
+              onClick={onRefresh}
+              disabled={!canRefresh}
+            >
+              <IconRefreshCw size={15} aria-hidden="true" className={styles.idleGlyph} />
+              <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
+            </button>
+          ) : loading && !retainedClaudeUsage ? (
+            <div className={styles.skeleton} aria-busy="true">
+              <span className={styles.srOnly}>{t(`${adapter.i18nPrefix}.loading`)}</span>
+              {[0, 1].map((row) => (
+                <div key={row} className={styles.skeletonRow} aria-hidden="true">
+                  <span className={styles.skeletonLabel} />
+                  <span className={styles.skeletonTrack} />
+                </div>
+              ))}
+            </div>
+          ) : status === 'error' ? (
+            <div className={styles.errorStrip} role="alert">
+              {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
+            </div>
+          ) : quota && !retainedClaudeUsage ? (
+            <adapter.Body
+              quota={quota}
+              classes={quotaClasses}
+              planItems={claudePlanItems}
+              afterPlan={claudeAfterPlan}
+            />
+          ) : !retainedClaudeUsage ? (
+            <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
+          ) : null}
+          {loading && retainedClaudeUsage && (
+            <div role="status" aria-busy="true" className={quotaClasses.quotaMessage}>
+              {t(`${adapter.i18nPrefix}.loading`)}
+            </div>
+          )}
+          {retainedClaudeUsage && quota && (
+            <adapter.Body
+              quota={quota}
+              classes={quotaClasses}
+              planItems={claudePlanItems}
+              afterPlan={claudeAfterPlan}
+            />
+          )}
+        </div>
+      </MeterDisplayContext.Provider>
 
       {predictedMeters.length > 0 && (
         <div className={styles.predictions}>
-          {predictedMeters.map((meter) => (
+          {meterRates.map(({ meter, rate }) => (
             <div key={meter.id} className={styles.predictionRow}>
               <span className={styles.predictionLabel}>{meterLabel(t, meter)}</span>
-              <QuotaPrediction
-                meter={meter}
-                nowMs={nowMs}
-                rate={resolveMeterRate(
-                  meter,
-                  snapshotsFor(getQuotaCacheKey(file), meter.id),
-                  nowMs,
-                  lookbackMs
-                )}
-              />
+              <QuotaPrediction meter={meter} nowMs={nowMs} rate={rate} />
             </div>
           ))}
         </div>

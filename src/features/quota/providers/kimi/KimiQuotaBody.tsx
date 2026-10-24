@@ -4,6 +4,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { KimiQuotaState } from '@/types';
 import { buildResetDisplay, formatKimiResetHint } from '@/utils/quota';
 import { useNow } from '@/hooks/useNow';
@@ -14,6 +15,7 @@ import type { QuotaBodyProps } from '../../types';
 
 export function KimiQuotaBody({ quota, classes }: QuotaBodyProps<KimiQuotaState>) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   // Ahead of the early return below — hooks cannot be conditional.
   const now = useNow();
   const soonestRowId = useMemo(
@@ -37,7 +39,8 @@ export function KimiQuotaBody({ quota, classes }: QuotaBodyProps<KimiQuotaState>
             : used > 0
               ? 0
               : null;
-        const percentLabel = remaining === null ? '--' : `${remaining}%`;
+        const percentLabel =
+          remaining === null ? '--' : meterPercentLabel(t, remaining, mode, `${remaining}%`);
         const rowLabel = row.labelKey
           ? t(row.labelKey, (row.labelParams ?? {}) as Record<string, string | number>)
           : (row.label ?? '');

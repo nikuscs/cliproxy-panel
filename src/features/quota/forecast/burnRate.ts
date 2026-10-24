@@ -75,6 +75,9 @@ export function burnOutcome(
   };
 }
 
+/** At this pace the window empties before it refills: the bar to worry about. */
+export const runsOutAtPace = (burn: WindowBurn): boolean => burn.outcome === 'runs_out';
+
 /** Outcome at `ratePerHour` (a measured rate) or, by default, the window average. */
 export function windowBurn(
   meter: BurnInput,

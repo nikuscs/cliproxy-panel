@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { CodexQuotaState } from '@/types';
 import {
   normalizePlanType,
@@ -33,6 +34,7 @@ const getPlanValueClass = (planType: string | null, classes: QuotaClassMap): str
 
 export function CodexQuotaBody({ quota, classes }: QuotaBodyProps<CodexQuotaState>) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   const now = useNow();
   const locale = i18n.resolvedLanguage;
   // Windows and reset credits compete for the same emphasis, but only during
@@ -179,7 +181,10 @@ export function CodexQuotaBody({ quota, classes }: QuotaBodyProps<CodexQuotaStat
           const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
           const remaining =
             clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-          const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
+          const percentLabel =
+            remaining === null
+              ? '--'
+              : meterPercentLabel(t, remaining, mode, `${Math.round(remaining)}%`);
           const windowLabel = window.labelKey
             ? t(window.labelKey, window.labelParams as Record<string, string | number>)
             : window.label;
@@ -202,7 +207,7 @@ export function CodexQuotaBody({ quota, classes }: QuotaBodyProps<CodexQuotaStat
                   )}
                 </div>
               </div>
-              <QuotaMeter percent={remaining} classes={classes} index={index} />
+              <QuotaMeter percent={remaining} classes={classes} index={index} meterId={window.id} />
             </div>
           );
         })

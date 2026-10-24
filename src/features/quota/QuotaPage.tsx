@@ -57,6 +57,7 @@ import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { stripCredentialExtension } from './display';
 import { PrivacyContext } from './privacy';
+import { MeterDisplayContext, QUOTA_DISPLAY_MODES, type QuotaDisplayMode } from './meterDisplay';
 import { quotaObservedAt, useQuotaCache } from './hooks/useQuotaCache';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
@@ -343,6 +344,19 @@ export function QuotaPage() {
     [t]
   );
 
+  const displayOptions = useMemo(
+    () =>
+      QUOTA_DISPLAY_MODES.map((mode) => ({
+        value: mode,
+        label: t(`quota_management.display_${mode}`),
+      })),
+    [t]
+  );
+  const meterDisplay = useMemo(
+    () => ({ mode: preferences.displayMode, atPace: new Set<string>() }),
+    [preferences.displayMode]
+  );
+
   const viewOptions = useMemo(
     () =>
       QUOTA_VIEW_MODES.map((mode) => ({ value: mode, label: t(`quota_management.view_${mode}`) })),
@@ -560,238 +574,252 @@ export function QuotaPage() {
   return (
     // Private values (emails, account names) blur unless revealed.
     <PrivacyContext.Provider value={preferences.showEmails}>
-      <div className={styles.page} ref={revealRef} data-input={inputMode}>
-        <QuotaHeader
-          totalCount={entries.length}
-          loadedCount={loadedCount}
-          attentionCount={attentionCount}
-          refreshing={loading || batchLoading}
-          disableControls={disableControls}
-          showEmails={preferences.showEmails}
-          onToggleEmails={() => updatePreferences({ showEmails: !preferences.showEmails })}
-          onRefreshAll={handleRefreshAll}
-        />
-
-        <section className={styles.workbench}>
-          {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
-          <div className={styles.tabsRow} data-reveal>
-            <ProviderTabs
-              types={tabIds}
-              counts={tabCounts}
-              active={tab}
-              resolvedTheme={resolvedTheme}
-              onChange={handleTabChange}
-            />
-          </div>
-
-          {/* A placeholder until cached quota and recorded history are both in. */}
-          {!loading && (!hydrated || !historyLoaded) && forecastGroups.length > 0 && (
-            <div className={styles.forecasts} aria-busy="true">
-              {forecastGroups.map((group) => (
-                <Skeleton
-                  key={group.provider}
-                  height={
-                    tab === 'all' ? ALL_TAB_CHART_HEIGHT + 40 : PROVIDER_TAB_CHART_HEIGHT + 150
-                  }
-                  rounded={14}
-                />
-              ))}
-            </div>
-          )}
-
-          {!loading && hydrated && historyLoaded && forecastGroups.length > 0 && (
-            <div className={styles.forecasts}>
-              {forecastGroups.map((group) => (
-                <QuotaForecast
-                  key={group.provider}
-                  provider={group.provider}
-                  entries={group.entries}
-                  quotaFor={getQuota}
-                  history={historyFor(group.provider)}
-                  snapshotsFor={snapshotsFor}
-                  nowMs={clockNow}
-                  resolvedTheme={resolvedTheme}
-                  layout={tab === 'all' ? 'split' : 'stacked'}
-                  chartHeight={tab === 'all' ? ALL_TAB_CHART_HEIGHT : PROVIDER_TAB_CHART_HEIGHT}
-                  rangeDays={preferences.forecastRangeDays}
-                  lookbackHours={preferences.forecastLookbackHours}
-                  collapsed={preferences.collapsedForecasts.includes(group.provider)}
-                  onRangeDaysChange={(forecastRangeDays) =>
-                    updatePreferences({ forecastRangeDays })
-                  }
-                  onLookbackHoursChange={(forecastLookbackHours) =>
-                    updatePreferences({ forecastLookbackHours })
-                  }
-                  onCollapsedChange={(collapsed) => toggleForecast(group.provider, collapsed)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className={styles.toolbar}>
-            <div className={styles.search}>
-              <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                className={styles.searchInput}
-                type="search"
-                value={search}
-                onChange={(event) => handleSearchChange(event.target.value)}
-                placeholder={t('quota_management.search_placeholder')}
-                aria-label={t('quota_management.search_label')}
-              />
-              {search && (
-                <button
-                  type="button"
-                  className={styles.clearSearch}
-                  aria-label={t('quota_management.search_clear')}
-                  title={t('quota_management.search_clear')}
-                  onClick={() => {
-                    handleSearchChange('');
-                    searchInputRef.current?.focus();
-                  }}
-                >
-                  <IconX size={14} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-            <div className={styles.sort}>
-              <Select
-                value={viewMode}
-                options={viewOptions}
-                onChange={handleViewModeChange}
-                ariaLabel={t('quota_management.view_label')}
-                className={styles.quietSelect}
-                menuClassName={styles.quietMenu}
-                fullWidth={false}
-                size="sm"
-              />
-              <Select
-                value={sortMode}
-                options={sortOptions}
-                onChange={handleSortModeChange}
-                ariaLabel={t('quota_management.sort_label')}
-                className={styles.quietSelect}
-                menuClassName={styles.quietMenu}
-                fullWidth={false}
-                size="sm"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className={styles.errorBanner} role="alert">
-              {error}
-            </div>
-          )}
-
-          {loading || !hydrated ? (
-            <div className={styles.grid} aria-hidden="true">
-              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-                <Skeleton key={index} height={168} rounded={14} />
-              ))}
-            </div>
-          ) : isEmpty ? (
-            <EmptyState
-              title={
-                search.trim()
-                  ? t('quota_management.search_empty_title')
-                  : tab === 'all'
-                    ? t('quota_management.empty_title')
-                    : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_title`)
-              }
-              description={
-                search.trim()
-                  ? t('quota_management.search_empty_desc')
-                  : tab === 'all'
-                    ? t('quota_management.empty_desc')
-                    : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_desc`)
-              }
-              action={
-                search.trim() ? (
-                  <Button variant="secondary" size="sm" onClick={() => handleSearchChange('')}>
-                    {t('quota_management.search_clear')}
-                  </Button>
-                ) : tab === 'all' ? undefined : (
-                  <Button variant="secondary" size="sm" onClick={() => handleTabChange('all')}>
-                    {t('auth_files.filter_all')}
-                  </Button>
-                )
-              }
-            />
-          ) : viewMode === 'ledger' ? (
-            <QuotaLedger
-              entries={pageItems}
-              providerCounts={providerCounts}
-              quotaFor={getQuota}
-              resolvedTheme={resolvedTheme}
-              lastSeen={lastSeen}
-              snapshotsFor={snapshotsFor}
-              lookbackMs={preferences.forecastLookbackHours * HOUR_MS}
-              nowMs={clockNow}
-              canUseActions={canUseActions}
-              resettingQuotaName={resettingQuotaName}
-              onRefresh={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-              onReset={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-            />
-          ) : (
-            <div className={styles.grid}>
-              {pageItems.map((entry, index) => (
-                <QuotaCard
-                  key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                  entry={entry}
-                  quota={getQuota(entry)}
-                  resolvedTheme={resolvedTheme}
-                  canRefresh={canUseActions && !entry.file.disabled}
-                  resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                  snapshotsFor={snapshotsFor}
-                  lookbackMs={preferences.forecastLookbackHours * HOUR_MS}
-                  nowMs={clockNow}
-                  entranceDelayMs={cardEntranceDelay(index)}
-                  onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                  onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                />
-              ))}
-            </div>
-          )}
-
-          {!loading && filteredEntries.length > QUOTA_PAGE_SIZE && (
-            <div className={styles.pagination}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage <= 1}
-              >
-                {t('auth_files.pagination_prev')}
-              </Button>
-              <div className={styles.pageInfo}>
-                {t('auth_files.pagination_info', {
-                  current: currentPage,
-                  total: totalPages,
-                  count: filteredEntries.length,
-                })}
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage >= totalPages}
-              >
-                {t('auth_files.pagination_next')}
-              </Button>
-            </div>
-          )}
-
-          {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-          <QuotaTimeline
-            entries={pageItems}
-            quotaFor={getQuota}
-            displayNameFor={timelineNameFor}
-            resolvedTheme={resolvedTheme}
+      <MeterDisplayContext.Provider value={meterDisplay}>
+        <div className={styles.page} ref={revealRef} data-input={inputMode}>
+          <QuotaHeader
+            totalCount={entries.length}
+            loadedCount={loadedCount}
+            attentionCount={attentionCount}
+            refreshing={loading || batchLoading}
+            disableControls={disableControls}
+            showEmails={preferences.showEmails}
+            onToggleEmails={() => updatePreferences({ showEmails: !preferences.showEmails })}
+            onRefreshAll={handleRefreshAll}
           />
-        </section>
-      </div>
+
+          <section className={styles.workbench}>
+            {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
+            <div className={styles.tabsRow} data-reveal>
+              <ProviderTabs
+                types={tabIds}
+                counts={tabCounts}
+                active={tab}
+                resolvedTheme={resolvedTheme}
+                onChange={handleTabChange}
+              />
+            </div>
+
+            {/* A placeholder until cached quota and recorded history are both in. */}
+            {!loading && (!hydrated || !historyLoaded) && forecastGroups.length > 0 && (
+              <div className={styles.forecasts} aria-busy="true">
+                {forecastGroups.map((group) => (
+                  <Skeleton
+                    key={group.provider}
+                    height={
+                      tab === 'all' ? ALL_TAB_CHART_HEIGHT + 40 : PROVIDER_TAB_CHART_HEIGHT + 150
+                    }
+                    rounded={14}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!loading && hydrated && historyLoaded && forecastGroups.length > 0 && (
+              <div className={styles.forecasts}>
+                {forecastGroups.map((group) => (
+                  <QuotaForecast
+                    key={group.provider}
+                    provider={group.provider}
+                    entries={group.entries}
+                    quotaFor={getQuota}
+                    history={historyFor(group.provider)}
+                    snapshotsFor={snapshotsFor}
+                    nowMs={clockNow}
+                    resolvedTheme={resolvedTheme}
+                    layout={tab === 'all' ? 'split' : 'stacked'}
+                    chartHeight={tab === 'all' ? ALL_TAB_CHART_HEIGHT : PROVIDER_TAB_CHART_HEIGHT}
+                    rangeDays={preferences.forecastRangeDays}
+                    lookbackHours={preferences.forecastLookbackHours}
+                    collapsed={preferences.collapsedForecasts.includes(group.provider)}
+                    onRangeDaysChange={(forecastRangeDays) =>
+                      updatePreferences({ forecastRangeDays })
+                    }
+                    onLookbackHoursChange={(forecastLookbackHours) =>
+                      updatePreferences({ forecastLookbackHours })
+                    }
+                    onCollapsedChange={(collapsed) => toggleForecast(group.provider, collapsed)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className={styles.toolbar}>
+              <div className={styles.search}>
+                <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  className={styles.searchInput}
+                  type="search"
+                  value={search}
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  placeholder={t('quota_management.search_placeholder')}
+                  aria-label={t('quota_management.search_label')}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    className={styles.clearSearch}
+                    aria-label={t('quota_management.search_clear')}
+                    title={t('quota_management.search_clear')}
+                    onClick={() => {
+                      handleSearchChange('');
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <IconX size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div className={styles.sort}>
+                <Select
+                  value={preferences.displayMode}
+                  options={displayOptions}
+                  onChange={(value) =>
+                    updatePreferences({ displayMode: value as QuotaDisplayMode })
+                  }
+                  ariaLabel={t('quota_management.display_label')}
+                  className={styles.quietSelect}
+                  menuClassName={styles.quietMenu}
+                  fullWidth={false}
+                  size="sm"
+                />
+                <Select
+                  value={viewMode}
+                  options={viewOptions}
+                  onChange={handleViewModeChange}
+                  ariaLabel={t('quota_management.view_label')}
+                  className={styles.quietSelect}
+                  menuClassName={styles.quietMenu}
+                  fullWidth={false}
+                  size="sm"
+                />
+                <Select
+                  value={sortMode}
+                  options={sortOptions}
+                  onChange={handleSortModeChange}
+                  ariaLabel={t('quota_management.sort_label')}
+                  className={styles.quietSelect}
+                  menuClassName={styles.quietMenu}
+                  fullWidth={false}
+                  size="sm"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className={styles.errorBanner} role="alert">
+                {error}
+              </div>
+            )}
+
+            {loading || !hydrated ? (
+              <div className={styles.grid} aria-hidden="true">
+                {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                  <Skeleton key={index} height={168} rounded={14} />
+                ))}
+              </div>
+            ) : isEmpty ? (
+              <EmptyState
+                title={
+                  search.trim()
+                    ? t('quota_management.search_empty_title')
+                    : tab === 'all'
+                      ? t('quota_management.empty_title')
+                      : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_title`)
+                }
+                description={
+                  search.trim()
+                    ? t('quota_management.search_empty_desc')
+                    : tab === 'all'
+                      ? t('quota_management.empty_desc')
+                      : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_desc`)
+                }
+                action={
+                  search.trim() ? (
+                    <Button variant="secondary" size="sm" onClick={() => handleSearchChange('')}>
+                      {t('quota_management.search_clear')}
+                    </Button>
+                  ) : tab === 'all' ? undefined : (
+                    <Button variant="secondary" size="sm" onClick={() => handleTabChange('all')}>
+                      {t('auth_files.filter_all')}
+                    </Button>
+                  )
+                }
+              />
+            ) : viewMode === 'ledger' ? (
+              <QuotaLedger
+                entries={pageItems}
+                providerCounts={providerCounts}
+                quotaFor={getQuota}
+                resolvedTheme={resolvedTheme}
+                lastSeen={lastSeen}
+                snapshotsFor={snapshotsFor}
+                lookbackMs={preferences.forecastLookbackHours * HOUR_MS}
+                nowMs={clockNow}
+                canUseActions={canUseActions}
+                resettingQuotaName={resettingQuotaName}
+                onRefresh={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                onReset={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+              />
+            ) : (
+              <div className={styles.grid}>
+                {pageItems.map((entry, index) => (
+                  <QuotaCard
+                    key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
+                    entry={entry}
+                    quota={getQuota(entry)}
+                    resolvedTheme={resolvedTheme}
+                    canRefresh={canUseActions && !entry.file.disabled}
+                    resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                    snapshotsFor={snapshotsFor}
+                    lookbackMs={preferences.forecastLookbackHours * HOUR_MS}
+                    nowMs={clockNow}
+                    entranceDelayMs={cardEntranceDelay(index)}
+                    onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                    onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!loading && filteredEntries.length > QUOTA_PAGE_SIZE && (
+              <div className={styles.pagination}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  {t('auth_files.pagination_prev')}
+                </Button>
+                <div className={styles.pageInfo}>
+                  {t('auth_files.pagination_info', {
+                    current: currentPage,
+                    total: totalPages,
+                    count: filteredEntries.length,
+                  })}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  {t('auth_files.pagination_next')}
+                </Button>
+              </div>
+            )}
+
+            {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
+            <QuotaTimeline
+              entries={pageItems}
+              quotaFor={getQuota}
+              displayNameFor={timelineNameFor}
+              resolvedTheme={resolvedTheme}
+            />
+          </section>
+        </div>
+      </MeterDisplayContext.Provider>
     </PrivacyContext.Provider>
   );
 }

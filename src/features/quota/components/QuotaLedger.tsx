@@ -25,6 +25,8 @@ import {
 import { QUOTA_PROGRESS_HIGH_THRESHOLD, QUOTA_PROGRESS_MEDIUM_THRESHOLD } from './QuotaMeter';
 import { QuotaEntryActions } from './QuotaEntryActions';
 import { QuotaPrediction } from './QuotaPrediction';
+import { meterPercentLabel, shownPercent, useMeterDisplay } from '../meterDisplay';
+import { runsOutAtPace, windowBurn } from '../forecast/burnRate';
 import { PrivateValue } from './PrivateValue';
 import { ProviderIcon } from './ProviderIcon';
 import {
@@ -90,6 +92,7 @@ interface ProviderGroupProps {
 
 function ProviderGroup({ provider, count, meters, resolvedTheme }: ProviderGroupProps) {
   const { t } = useTranslation();
+  const { mode } = useMeterDisplay();
   const [expanded, setExpanded] = useState(false);
 
   // Sum each limit across the group's loaded credentials, keyed by meter id.
@@ -127,7 +130,7 @@ function ProviderGroup({ provider, count, meters, resolvedTheme }: ProviderGroup
         {visible.map(({ meter, total, count: reporting }) => (
           <span key={meter.id} className={styles.groupLimit}>
             {meterLabel(t, meter)}
-            <strong>{formatPercent(total)}</strong>
+            <strong>{formatPercent(mode === 'used' ? reporting * 100 - total : total)}</strong>
             {/* Not every credential reports every limit; show what the total covers. */}
             <span className={styles.groupCapacity}>/ {formatPercent(reporting * 100)}</span>
           </span>
@@ -171,6 +174,7 @@ function LedgerRow(props: LedgerRowProps) {
   const { snapshotsFor, lookbackMs } = props;
   const { canRefresh, resetting, onRefresh, onReset } = props;
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const status = quota?.status ?? 'idle';
   const claudeReset = useClaudeResetGrants(
@@ -233,6 +237,7 @@ function LedgerRow(props: LedgerRowProps) {
               nowMs,
               lookbackMs
             );
+            const atPace = runsOutAtPace(windowBurn(meter, nowMs, rate.ratePerHour));
             return (
               <div
                 key={meter.id}
@@ -242,12 +247,14 @@ function LedgerRow(props: LedgerRowProps) {
                   <span className={styles.meterLabel} title={meterLabel(t, meter)}>
                     {meterLabel(t, meter)}
                   </span>
-                  <span className={styles.meterValue}>{formatPercent(meter.remaining)}</span>
+                  <span className={styles.meterValue}>
+                    {meterPercentLabel(t, meter.remaining, mode, formatPercent(meter.remaining))}
+                  </span>
                 </div>
                 <div className={styles.track}>
                   <div
-                    className={`${styles.fill} ${fillClass(meter.remaining)}`}
-                    style={{ width: `${meter.remaining}%` }}
+                    className={`${styles.fill} ${atPace ? styles.fillLow : fillClass(meter.remaining)}`}
+                    style={{ width: `${shownPercent(meter.remaining, mode)}%` }}
                   />
                 </div>
                 <div className={styles.meterReset}>

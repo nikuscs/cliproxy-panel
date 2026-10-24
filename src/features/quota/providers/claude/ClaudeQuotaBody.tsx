@@ -4,6 +4,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { meterPercentLabel, useMeterDisplay } from '../../meterDisplay';
 import type { ClaudeQuotaState } from '@/types';
 import { buildResetDisplay, formatQuotaResetTime, resolveResetMs } from '@/utils/quota';
 import { useNow } from '@/hooks/useNow';
@@ -19,6 +20,7 @@ export function ClaudeQuotaBody({
   afterPlan,
 }: QuotaBodyProps<ClaudeQuotaState>) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   const now = useNow();
   const soonestRowId = useMemo(
     () => pickUrgentRowId(collectQuotaRowInstants('claude', quota), now),
@@ -163,7 +165,10 @@ export function ClaudeQuotaBody({
           const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
           const remaining =
             clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-          const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
+          const percentLabel =
+            remaining === null
+              ? '--'
+              : meterPercentLabel(t, remaining, mode, `${Math.round(remaining)}%`);
           const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
           const resetDisplay = buildResetDisplay(
             window.resetLabel,
@@ -189,7 +194,7 @@ export function ClaudeQuotaBody({
                   )}
                 </div>
               </div>
-              <QuotaMeter percent={remaining} classes={classes} index={index} />
+              <QuotaMeter percent={remaining} classes={classes} index={index} meterId={window.id} />
             </div>
           );
         })

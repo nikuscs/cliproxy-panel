@@ -30,8 +30,8 @@ export interface LiveReading {
   resetAtMs: number | null;
   periodHours: number | null;
   /**
-   * Rate used for this account: measured when enough history, else its window
-   * average. A window that ran out keeps the pace it had until it hit 0.
+   * Rate used for this account: the faster of its window average and its
+   * measured rate. A window that ran out keeps the pace it had until it hit 0.
    */
   ratePerHour: number | null;
   /** The window's own average since it opened (the dotted reference line). */
@@ -255,10 +255,10 @@ export function drainSeries(history: QuotaSnapshot[], nowMs: number, rangeMs: nu
 }
 
 /**
- * Current provider drain. Recorded history wins once it covers enough of the
- * lookback; otherwise the sum of each account's rate. An account that ran out
- * counts at the pace it had until it hit 0: it is the provider's usage pace,
- * not just what is draining this minute.
+ * Current provider drain: the sum of each account's rate, or the rate measured
+ * from recorded history when that covers enough of the lookback and is faster.
+ * An account that ran out counts at the pace it had until it hit 0: it is the
+ * provider's usage pace, not just what is draining this minute.
  */
 export function currentDrain(
   live: LiveReading[],
@@ -271,7 +271,8 @@ export function currentDrain(
   const windowAverage = live.reduce((total, reading) => total + (reading.averagePerHour ?? 0), 0);
   // Without enough provider history: each account's own rate (measured or average).
   const accountRates = live.reduce((total, reading) => total + (reading.ratePerHour ?? 0), 0);
-  if (measured && measured.coveredMs >= enoughMs) {
+  // Like each account: the faster of the measured rate and the window rates.
+  if (measured && measured.coveredMs >= enoughMs && measured.ratePerHour > accountRates) {
     return {
       ratePerHour: measured.ratePerHour,
       source: 'history',

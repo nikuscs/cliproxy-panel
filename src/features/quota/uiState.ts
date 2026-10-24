@@ -10,6 +10,7 @@ import {
   type QuotaTabId,
   type QuotaViewMode,
 } from './constants';
+import { QUOTA_DISPLAY_MODES, type QuotaDisplayMode } from './meterDisplay';
 import type { QuotaProviderType } from './providers/types';
 
 /** 额度页 UI 偏好：会话级持久化（sessionStorage），跨会话不携带。 */
@@ -68,6 +69,8 @@ export const writeQuotaUiState = (state: QuotaUiState) => {
  */
 export type QuotaPreferences = {
   showEmails: boolean;
+  /** Meters show usage (default) or what is left. */
+  displayMode: QuotaDisplayMode;
   /** View on a single provider tab. */
   viewMode: QuotaViewMode;
   /** View on the All tab (upstream card grid by default). */
@@ -84,6 +87,7 @@ const QUOTA_PREFERENCES_KEY = 'quotaPage.preferences';
 
 const DEFAULT_QUOTA_PREFERENCES: QuotaPreferences = {
   showEmails: false,
+  displayMode: 'used',
   viewMode: 'ledger',
   allViewMode: 'cards',
   forecastRangeDays: 7,
@@ -107,6 +111,7 @@ export const readQuotaPreferences = (): QuotaPreferences => {
     const parsed = JSON.parse(window.localStorage.getItem(QUOTA_PREFERENCES_KEY) ?? '{}');
     return {
       showEmails: parsed.showEmails === true,
+      displayMode: oneOf(QUOTA_DISPLAY_MODES, parsed.displayMode, defaults.displayMode),
       viewMode: oneOf(QUOTA_VIEW_MODES, parsed.viewMode, defaults.viewMode),
       allViewMode: oneOf(QUOTA_VIEW_MODES, parsed.allViewMode, defaults.allViewMode),
       forecastRangeDays: oneOf(

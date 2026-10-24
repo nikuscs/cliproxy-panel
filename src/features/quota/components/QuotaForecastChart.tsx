@@ -42,6 +42,8 @@ export interface QuotaForecastChartProps {
   reference?: { value: number; label: string } | null;
   /** Short inline note over an empty plot ("Measuring… 3 readings so far"). */
   note?: string | null;
+  /** When the quota hits its limit at this pace: a red line with a label. */
+  marker?: { atMs: number; label: string } | null;
 }
 
 function useWidth() {
@@ -91,6 +93,7 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
   const compact = props.compact === true;
   const reference = props.reference ?? null;
   const note = props.note ?? null;
+  const marker = props.marker && props.marker.atMs <= endMs ? props.marker : null;
   const { i18n, t } = useTranslation();
   const gradientId = useId();
   const { ref, width } = useWidth();
@@ -252,6 +255,21 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
             >
               {note}
             </text>
+          )}
+
+          {marker && (
+            <g>
+              <line
+                className={styles.limitLine}
+                x1={x(marker.atMs)}
+                x2={x(marker.atMs)}
+                y1={PAD.top}
+                y2={baseline}
+              />
+              <text className={styles.limitLabel} x={x(marker.atMs) + 6} y={PAD.top + 10}>
+                {marker.label}
+              </text>
+            </g>
           )}
 
           <line className={styles.nowLine} x1={nowX} x2={nowX} y1={PAD.top} y2={baseline} />

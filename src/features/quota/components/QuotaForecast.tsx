@@ -30,6 +30,7 @@ import type { QuotaProviderType } from '../providers/types';
 import {
   buildQuotaForecast,
   drainSeries,
+  type ChartPoint,
   type LiveReading,
   type QuotaForecast as QuotaForecastModel,
 } from '../forecast/forecastModel';
@@ -54,6 +55,7 @@ import {
   rateLabel,
 } from '../display';
 import { usePrivacyRevealed } from '../privacy';
+import { useMeterDisplay } from '../meterDisplay';
 import { ProviderIcon } from './ProviderIcon';
 import { QuotaForecastChart } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
@@ -112,17 +114,23 @@ const niceCeil = (value: number) => {
   return step * magnitude;
 };
 
-/** "Next reset +200% · Tue 10:00 PM". */
+/** "Next reset +200% · Tue 10:00 PM" ("−200%" of usage in the used view). */
 function ResetNote({ forecast }: { forecast: QuotaForecastModel }) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   return (
     <span className={styles.resetNote}>
       {forecast.nextReset
-        ? t('quota_management.forecast_next_reset', {
-            gain: formatPercent(forecast.nextReset.gain),
-            // With the date: "Fri 8:47 AM" is ambiguous on a Friday a week out.
-            time: formatOutlookTime(forecast.nextReset.atMs, i18n.language),
-          })
+        ? t(
+            mode === 'used'
+              ? 'quota_management.forecast_next_reset_used'
+              : 'quota_management.forecast_next_reset',
+            {
+              gain: formatPercent(forecast.nextReset.gain),
+              // With the date: "Fri 8:47 AM" is ambiguous on a Friday a week out.
+              time: formatOutlookTime(forecast.nextReset.atMs, i18n.language),
+            }
+          )
         : t('quota_management.forecast_no_reset')}
     </span>
   );
@@ -240,6 +248,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
     onCollapsedChange,
   } = props;
   const { t } = useTranslation();
+  const { mode: displayMode } = useMeterDisplay();
   const [chartTab, setChartTab] = useState<ChartTab>('remaining');
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The user's 7-day / 5-hour choice; null follows the window closer to running out. */
@@ -366,6 +375,16 @@ export function QuotaForecast(props: QuotaForecastProps) {
       ? t('quota_management.forecast_measuring', { count: forecast.readings })
       : null;
   const chartIsRemaining = chartTab === 'remaining';
+  // The used view flips every quota value: capacity minus what is left.
+  const used = displayMode === 'used';
+  const asShown = (points: ChartPoint[]) =>
+    used ? points.map((point) => ({ t: point.t, v: forecast.capacity - point.v })) : points;
+  const tabLabel = (tab: ChartTab) =>
+    t(
+      tab === 'remaining' && used
+        ? 'quota_management.forecast_tab_used'
+        : `quota_management.forecast_tab_${tab}`
+    );
   const rateHint = measured
     ? t('quota_management.forecast_rate_source_measured', {
         // Whole hours read better than "17h 59m" for a coverage figure.
@@ -389,12 +408,17 @@ export function QuotaForecast(props: QuotaForecastProps) {
         {providerLabel}
         <p className={styles.totals}>
           <span className={styles.bigNumber} style={{ color: accent }}>
-            {formatPercent(forecast.remaining)}
+            {formatPercent(used ? forecast.capacity - forecast.remaining : forecast.remaining)}
           </span>
           <span className={styles.capacity}>
-            {t('quota_management.forecast_capacity', {
-              capacity: formatPercent(forecast.capacity),
-            })}
+            {t(
+              used
+                ? 'quota_management.forecast_capacity_used'
+                : 'quota_management.forecast_capacity',
+              {
+                capacity: formatPercent(forecast.capacity),
+              }
+            )}
           </span>
           <span className={styles.rate}>
             {rateLabel(t, drain.ratePerHour)}
@@ -449,7 +473,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
                   style={chartTab === tab ? { color: accent, borderColor: accent } : undefined}
                   onClick={() => setChartTab(tab)}
                 >
-                  {t(`quota_management.forecast_tab_${tab}`)}
+                  {tabLabel(tab)}
                 </button>
               ))}
             </div>
@@ -460,7 +484,9 @@ export function QuotaForecast(props: QuotaForecastProps) {
                     <span className={styles.legendDot} style={{ background: accent }} />
                     {t(
                       chartIsRemaining
-                        ? 'quota_management.forecast_legend_remaining'
+                        ? used
+                          ? 'quota_management.forecast_legend_used'
+                          : 'quota_management.forecast_legend_remaining'
                         : 'quota_management.forecast_legend_measured'
                     )}
                   </span>
@@ -522,8 +548,19 @@ export function QuotaForecast(props: QuotaForecastProps) {
             endMs={chartIsRemaining ? nowMs + rangeMs : nowMs}
             nowMs={nowMs}
             yMax={chartIsRemaining ? Math.max(forecast.capacity, 100) : drainMax}
-            history={chartIsRemaining ? forecast.history : measuringNote ? [] : drainPast.segments}
-            projection={chartIsRemaining ? forecast.projection : []}
+            history={
+              chartIsRemaining
+                ? forecast.history.map(asShown)
+                : measuringNote
+                  ? []
+                  : drainPast.segments
+            }
+            projection={chartIsRemaining ? asShown(forecast.projection) : []}
+            marker={
+              chartIsRemaining && forecast.firstRunsOutAtMs !== null
+                ? { atMs: forecast.firstRunsOutAtMs, label: t('quota_management.forecast_limit') }
+                : null
+            }
             reference={
               chartIsRemaining
                 ? null
@@ -533,7 +570,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
                   }
             }
             accent={accent}
-            label={t(`quota_management.forecast_tab_${chartTab}`)}
+            label={tabLabel(chartTab)}
             formatValue={chartIsRemaining ? formatPercent : formatRate}
             compact={split}
             note={measuringNote}
