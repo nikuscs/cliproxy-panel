@@ -38,11 +38,19 @@ interface WindowLike {
   periodHours?: number | null;
 }
 
-/** Weekly account window id per provider; model-scoped weeklies are not primary. */
+/**
+ * Weekly account window id per provider; model-scoped weeklies are not primary.
+ * xAI has a single timeline window, filed as `window`.
+ */
 const PRIMARY_WINDOW_ID: Partial<Record<QuotaProviderType, string>> = {
   claude: 'seven-day',
   codex: 'weekly',
+  xai: 'window',
 };
+
+/** Whether a window is its provider's weekly account window. */
+export const isPrimaryWindow = (provider: QuotaProviderType, windowId: string) =>
+  PRIMARY_WINDOW_ID[provider] === windowId;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 const finiteOrNull = (value: unknown) =>

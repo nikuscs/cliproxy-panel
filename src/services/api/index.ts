@@ -13,5 +13,6 @@ export * from './version';
 export * from './models';
 export * from './metaQuota';
 export * from './plugins';
+export * from './quotaHistory';
 export * from './transformers';
 export * from './vertex';
