@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useCountUp } from '@/hooks/motion';
+import { QUOTA_DISPLAY_MODES, type QuotaDisplayMode } from '../meterDisplay';
 import styles from './QuotaHeader.module.scss';
 
 export type QuotaHeaderProps = {
@@ -11,6 +12,8 @@ export type QuotaHeaderProps = {
   disableControls: boolean;
   showEmails: boolean;
   onToggleEmails: () => void;
+  displayMode: QuotaDisplayMode;
+  onDisplayModeChange: (mode: QuotaDisplayMode) => void;
   onRefreshAll: () => void;
 };
 
@@ -30,6 +33,8 @@ export function QuotaHeader(props: QuotaHeaderProps) {
     disableControls,
     showEmails,
     onToggleEmails,
+    displayMode,
+    onDisplayModeChange,
     onRefreshAll,
   } = props;
   const { t } = useTranslation();
@@ -65,6 +70,23 @@ export function QuotaHeader(props: QuotaHeaderProps) {
         </p>
       </div>
       <div className={styles.actions} data-reveal>
+        <div
+          className={styles.segmented}
+          role="group"
+          aria-label={t('quota_management.display_label')}
+        >
+          {QUOTA_DISPLAY_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`${styles.segment} ${mode === displayMode ? styles.segmentActive : ''}`}
+              aria-pressed={mode === displayMode}
+              onClick={() => onDisplayModeChange(mode)}
+            >
+              {t(`quota_management.display_${mode}`)}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className={styles.secondaryAction}

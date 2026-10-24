@@ -78,11 +78,11 @@ function exhaustedAtMs(meter: QuotaMeterReading, snapshots: QuotaSnapshot[], now
 }
 
 /**
- * The faster of the window average (used since the window opened, the rule
- * openusage follows) and the rate measured from this meter's own readings.
- * Readings only exist while the page is open, so a measured rate alone misses
- * usage in between and under-warns; the average alone misses a recent burst.
- * A window that ran out keeps the pace it had until it hit 0, so it still
+ * The window average (used since the window opened, the rule openusage
+ * follows), else the rate measured from this meter's own readings. Readings
+ * only exist while the page is open, mostly while working, so a measured rate
+ * misses the idle hours: below the average it under-warns, above it it treats
+ * a burst as nonstop use. A window that ran out keeps the pace it had until it hit 0, so it still
  * counts towards the provider rate and drives its next window.
  */
 export function resolveMeterRate(
@@ -106,9 +106,9 @@ export function resolveMeterRate(
   const fromMs = Math.max(nowMs - rule.lookbackMs, exhausted?.startMs ?? -Infinity);
   const measured = measureDrain(snapshots, fromMs, untilMs);
   if (
+    averagePerHour === null &&
     measured &&
-    measured.coveredMs >= rule.enoughMs &&
-    measured.ratePerHour > (averagePerHour ?? 0)
+    measured.coveredMs >= rule.enoughMs
   ) {
     return {
       ratePerHour: measured.ratePerHour,

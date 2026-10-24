@@ -46,18 +46,16 @@ import type { SnapshotsFor } from '../hooks/useQuotaHistory';
 import { meterAsOf, readQuotaMeters } from '../forecast/quotaMeters';
 import {
   stripCredentialExtension,
-  formatClockTime,
   formatCompactDuration,
   formatOutlookTime,
   formatPercent,
   formatRate,
-  formatWeekdayTime,
   rateLabel,
 } from '../display';
 import { usePrivacyRevealed } from '../privacy';
 import { useMeterDisplay } from '../meterDisplay';
 import { ProviderIcon } from './ProviderIcon';
-import { QuotaForecastChart } from './QuotaForecastChart';
+import { QuotaForecastChart, type ChartMarker } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
 
 type ChartTab = 'remaining' | 'drain';
@@ -114,35 +112,41 @@ const niceCeil = (value: number) => {
   return step * magnitude;
 };
 
-/** "Next reset +200% · Tue 10:00 PM" ("−200%" of usage in the used view). */
-function ResetNote({ forecast }: { forecast: QuotaForecastModel }) {
-  const { t, i18n } = useTranslation();
-  const { mode } = useMeterDisplay();
-  return (
-    <span className={styles.resetNote}>
-      {forecast.nextReset
-        ? t(
-            mode === 'used'
-              ? 'quota_management.forecast_next_reset_used'
-              : 'quota_management.forecast_next_reset',
-            {
-              gain: formatPercent(forecast.nextReset.gain),
-              // With the date: "Fri 8:47 AM" is ambiguous on a Friday a week out.
-              time: formatOutlookTime(forecast.nextReset.atMs, i18n.language),
-            }
-          )
-        : t('quota_management.forecast_no_reset')}
-    </span>
-  );
+/**
+ * How serious the outlook is, for the table and the chart markers:
+ * - `out`: every account is out now, or all of them run out before their resets;
+ * - `warn`: some account runs out before its reset, others still cover;
+ * - `ok`: nothing runs out (an account already out is covered by the rest).
+ */
+type OutlookTone = 'out' | 'warn' | 'ok';
+
+const TONE_CLASS: Record<OutlookTone, string> = {
+  out: styles.toneOut,
+  warn: styles.toneWarn,
+  ok: styles.toneOk,
+};
+
+function outlookTone(forecast: QuotaForecastModel, accounts: number): OutlookTone {
+  const draining = accounts - forecast.outNow.count;
+  if (draining <= 0) return 'out';
+  if (forecast.firstRunsOutAtMs === null) return 'ok';
+  const allRunOut = draining === 1 || (accounts > 1 && forecast.allOutAtMs !== null);
+  return allRunOut ? 'out' : 'warn';
 }
 
 /**
- * "1 of 2 accounts out now · back in 26m (6:00 PM)" leads when any account is
- * at 0%. Then "At this pace: first account runs out in 1d 4h (Sat 24 Oct, 7:00 PM) · all
- * out in 5d 2h (…)", or "lasts until next reset · ~120% unused at resets".
+ * The outlook as a small table, short values first; exact times and the
+ * per-account split are in each value's tooltip. Rows take the outlook's tone.
+ * - Free now: "286% on 5 of 6 accounts", when any account is at 0%.
+ * - Limit hit: "1 of 2 accounts · resets in 26m", when any account is at 0%. The
+ *   one-account key avoids a `_one` suffix: i18next reads that as the plural
+ *   form of `pace_out_now` whenever `count` is 1.
+ * - At this pace: "first account out in 1d 4h", or "lasts until next reset".
+ * - All out: "in 5d 2h"; or Unused at reset: "~120%".
+ * - Next reset: "+200% in 18h" ("frees 200%" in the used view).
  * Accounts use their own window rate; "all out" comes from the projection.
  */
-function PaceNote({
+function Outlook({
   forecast,
   accounts,
   nowMs,
@@ -152,25 +156,18 @@ function PaceNote({
   nowMs: number;
 }) {
   const { t, i18n } = useTranslation();
+  const { mode } = useMeterDisplay();
   // A native tooltip can't blur: name accounts only when revealed.
   const revealed = usePrivacyRevealed();
-  // Today needs only the clock: "(6:00 PM)"; later days keep the date.
-  const formatBackTime = (atMs: number) =>
-    new Date(atMs).toDateString() === new Date(nowMs).toDateString()
-      ? formatClockTime(atMs, i18n.language)
-      : formatOutlookTime(atMs, i18n.language);
-  const when = (atMs: number) => ({
-    duration: formatCompactDuration(atMs - nowMs),
-    time: formatOutlookTime(atMs, i18n.language),
-  });
-  const { outNow } = forecast;
+  const duration = (atMs: number) => formatCompactDuration(atMs - nowMs);
+  const time = (atMs: number) => formatOutlookTime(atMs, i18n.language);
+  const { outNow, nextReset } = forecast;
   const first = forecast.firstRunsOutAtMs;
   const allOut = accounts > 1 ? forecast.allOutAtMs : null;
-  // Accounts with quota left; when none, the line is only "out now · back in …".
+  // Accounts with quota left; when none, only "out now" and the reset show.
   const draining = accounts - outNow.count;
   const unused = Math.round(forecast.unusedAtResets);
-  // Each account has its own reset: name the first one, list all on hover.
-  const firstReset = forecast.unusedByAccount[0]?.resetAtMs ?? null;
+  const tone = TONE_CLASS[outlookTone(forecast, accounts)];
   const unusedDetail = forecast.unusedByAccount
     .map((item, index) =>
       t('quota_management.pace_unused_item', {
@@ -178,54 +175,96 @@ function PaceNote({
           ? stripCredentialExtension(item.credentialId)
           : t('quota_management.privacy_account_n', { n: index + 1 }),
         unused: `${Math.round(item.unused)}%`,
-        time: formatOutlookTime(item.resetAtMs, i18n.language),
+        time: time(item.resetAtMs),
       })
     )
     .join('\n');
 
+  const rows: { label: string; value: string; tone?: string; detail?: string }[] = [];
+  if (outNow.count > 0 && accounts > 1) {
+    rows.push({
+      label: t('quota_management.pace_label_free_now'),
+      value: t('quota_management.pace_free_now', {
+        free: formatPercent(forecast.remaining),
+        usable: draining,
+        total: accounts,
+      }),
+      tone,
+    });
+  }
+  if (outNow.count > 0) {
+    rows.push({
+      label: t('quota_management.pace_label_out_now'),
+      value: t(
+        accounts > 1 ? 'quota_management.pace_out_now' : 'quota_management.pace_out_now_single',
+        {
+          count: outNow.count,
+          total: accounts,
+          duration: outNow.backAtMs === null ? '' : duration(outNow.backAtMs),
+        }
+      ),
+      tone,
+      detail: outNow.backAtMs === null ? undefined : time(outNow.backAtMs),
+    });
+  }
+  if (draining > 0) {
+    rows.push(
+      first !== null
+        ? {
+            label: t('quota_management.pace_label_pace'),
+            value: t(
+              draining > 1 ? 'quota_management.pace_first_out' : 'quota_management.pace_runs_out',
+              { duration: duration(first) }
+            ),
+            tone,
+            detail: time(first),
+          }
+        : {
+            label: t('quota_management.pace_label_pace'),
+            value: t('quota_management.pace_lasts'),
+            tone: styles.toneOk,
+          }
+    );
+    if (allOut !== null) {
+      rows.push({
+        label: t('quota_management.pace_label_all_out'),
+        value: t('quota_management.pace_all_out', { duration: duration(allOut) }),
+        tone: styles.toneOut,
+        detail: time(allOut),
+      });
+    } else if (unused > 0 && forecast.unusedByAccount.length > 0) {
+      rows.push({
+        label: t('quota_management.pace_label_unused'),
+        value: `~${unused}%`,
+        detail: unusedDetail,
+      });
+    }
+  }
+  if (nextReset) {
+    rows.push({
+      label: t('quota_management.pace_label_next_reset'),
+      value: t(
+        mode === 'used' ? 'quota_management.pace_reset_frees' : 'quota_management.pace_reset_adds',
+        { gain: formatPercent(nextReset.gain), duration: duration(nextReset.atMs) }
+      ),
+      detail: time(nextReset.atMs),
+    });
+  }
+
   return (
-    <p className={styles.pace}>
-      {outNow.count > 0 && (
-        <span className={styles.paceNow}>
-          {t(accounts > 1 ? 'quota_management.pace_out_now' : 'quota_management.pace_out_now_one', {
-            count: outNow.count,
-            total: accounts,
-            duration:
-              outNow.backAtMs === null ? '' : formatCompactDuration(outNow.backAtMs - nowMs),
-            time: outNow.backAtMs === null ? '' : formatBackTime(outNow.backAtMs),
-          })}
-        </span>
-      )}
-      {draining > 0 && (
-        <>
-          <span className={styles.pacePrefix}>{t('quota_management.pace_prefix')}</span>
-          {first !== null ? (
-            <span className={styles.paceOut}>
-              {t(
-                draining > 1 ? 'quota_management.pace_first_out' : 'quota_management.pace_runs_out',
-                when(first)
-              )}
-            </span>
-          ) : (
-            <span className={styles.paceLasts}>{t('quota_management.pace_lasts')}</span>
-          )}
-          {allOut !== null ? (
-            <span className={`${styles.paceOut} ${styles.paceMore}`}>
-              {t('quota_management.pace_all_out', when(allOut))}
-            </span>
-          ) : unused > 0 && firstReset !== null ? (
-            <span className={styles.paceMore} title={unusedDetail}>
-              {t(
-                forecast.unusedByAccount.length > 1
-                  ? 'quota_management.pace_unused'
-                  : 'quota_management.pace_unused_one',
-                { unused: `${unused}%`, time: formatWeekdayTime(firstReset, i18n.language) }
-              )}
-            </span>
-          ) : null}
-        </>
-      )}
-    </p>
+    <dl className={styles.outlook}>
+      {rows.map((row) => (
+        <div key={row.label} className={styles.outlookRow}>
+          <dt>{row.label}</dt>
+          <dd
+            className={[row.tone, row.detail ? styles.hasDetail : ''].filter(Boolean).join(' ')}
+            title={row.detail}
+          >
+            {row.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -375,6 +414,24 @@ export function QuotaForecast(props: QuotaForecastProps) {
       ? t('quota_management.forecast_measuring', { count: forecast.readings })
       : null;
   const chartIsRemaining = chartTab === 'remaining';
+  // First account out (yellow while others cover) and all out (red).
+  const chartMarkers: ChartMarker[] = [];
+  if (forecast.firstRunsOutAtMs !== null) {
+    chartMarkers.push({
+      atMs: forecast.firstRunsOutAtMs,
+      label: t(
+        live.length > 1 ? 'quota_management.forecast_first_out' : 'quota_management.forecast_limit'
+      ),
+      tone: outlookTone(forecast, live.length) === 'warn' ? 'warn' : 'out',
+    });
+  }
+  if (live.length > 1 && forecast.allOutAtMs !== null) {
+    chartMarkers.push({
+      atMs: forecast.allOutAtMs,
+      label: t('quota_management.forecast_all_out'),
+      tone: 'out',
+    });
+  }
   // The used view flips every quota value: capacity minus what is left.
   const used = displayMode === 'used';
   const asShown = (points: ChartPoint[]) =>
@@ -444,8 +501,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
             ))}
           </div>
         )}
-        {split && <PaceNote forecast={forecast} accounts={live.length} nowMs={nowMs} />}
-        {(collapsed || split) && <ResetNote forecast={forecast} />}
+        {split && <Outlook forecast={forecast} accounts={live.length} nowMs={nowMs} />}
         <button
           type="button"
           className={styles.iconButton}
@@ -457,7 +513,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
           {collapsed ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
         </button>
       </div>
-      {!split && <PaceNote forecast={forecast} accounts={live.length} nowMs={nowMs} />}
+      {!split && <Outlook forecast={forecast} accounts={live.length} nowMs={nowMs} />}
 
       {!collapsed && (
         <>
@@ -556,11 +612,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
                   : drainPast.segments
             }
             projection={chartIsRemaining ? asShown(forecast.projection) : []}
-            marker={
-              chartIsRemaining && forecast.firstRunsOutAtMs !== null
-                ? { atMs: forecast.firstRunsOutAtMs, label: t('quota_management.forecast_limit') }
-                : null
-            }
+            markers={chartIsRemaining ? chartMarkers : []}
             reference={
               chartIsRemaining
                 ? null
@@ -578,7 +630,6 @@ export function QuotaForecast(props: QuotaForecastProps) {
 
           {!split && (
             <div className={styles.footer}>
-              <ResetNote forecast={forecast} />
               <button
                 type="button"
                 className={styles.settingsToggle}

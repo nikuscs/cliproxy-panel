@@ -366,62 +366,65 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   min-height: 24px;
   font-size: 13px;
 }
 
-.resetNote {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 14px;
-  color: var(--text-primary);
+/* The outlook table: muted labels, short values; dotted values have a tooltip. */
+.outlook {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  max-width: 420px;
+  margin: 0 0 2px;
   font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* "At this pace: …" outlook, always visible (also when collapsed). */
-.pace {
-  margin: -2px 0 2px;
   line-height: 18px;
-  color: var(--text-secondary);
-  font-size: 13px;
   font-variant-numeric: tabular-nums;
-
 }
 
-/* "1 of 2 accounts out now · back in …", ahead of the pace itself */
-.paceNow {
-  color: var(--viz-failure);
+.outlookRow {
+  display: contents;
 
-  &::after {
-    content: ' · ';
+  dt,
+  dd {
+    margin: 0;
+    padding: 4px 0;
+    border-top: 1px solid var(--border-color);
+  }
+
+  &:first-child dt,
+  &:first-child dd {
+    border-top: 0;
+  }
+
+  dt {
+    padding-right: 16px;
     color: var(--text-tertiary);
   }
-}
 
-/* The second part of the pace (all out / unused), after a dot. */
-.paceMore::before {
-  content: ' · ';
-  color: var(--text-tertiary);
-}
+  dd {
+    color: var(--text-primary);
+  }
 
-.pacePrefix {
-  color: var(--text-tertiary);
+  .toneOut {
+    color: var(--viz-failure);
+  }
 
-  &::after {
-    content: ' ';
+  .toneWarn {
+    color: var(--quota-medium-color);
+  }
+
+  .toneOk {
+    color: color-mix(in srgb, var(--viz-success) 70%, var(--text-tertiary));
   }
 }
 
-.paceOut {
-  color: var(--viz-failure);
-}
-
-.paceLasts {
-  color: color-mix(in srgb, var(--viz-success) 70%, var(--text-tertiary));
+.hasDetail {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
 }
 
 .settingsToggle {
@@ -551,19 +554,12 @@
     grid-area: chart;
   }
 
-  .pace {
+  .outlook {
     order: 4;
     width: 100%;
-    margin: 2px 0 0;
+    margin: 4px 0 0;
     font-size: 12.5px;
     line-height: 17px;
-  }
-
-  .resetNote {
-    order: 5;
-    width: 100%;
-    color: var(--text-tertiary);
-    font-size: 12.5px;
   }
 }
 
@@ -632,4 +628,14 @@
   fill: var(--viz-failure);
   font-size: 11px;
   font-weight: 600;
+}
+
+.markerWarn {
+  .limitLine {
+    stroke: var(--quota-medium-color);
+  }
+
+  .limitLabel {
+    fill: var(--quota-medium-color);
+  }
 }

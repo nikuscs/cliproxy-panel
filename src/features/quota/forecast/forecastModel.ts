@@ -256,7 +256,8 @@ export function drainSeries(history: QuotaSnapshot[], nowMs: number, rangeMs: nu
 
 /**
  * Current provider drain: the sum of each account's rate, or the rate measured
- * from recorded history when that covers enough of the lookback and is faster.
+ * from recorded history when no account has one and that covers enough of the
+ * lookback.
  * An account that ran out counts at the pace it had until it hit 0: it is the
  * provider's usage pace, not just what is draining this minute.
  */
@@ -269,10 +270,9 @@ export function currentDrain(
 ): ProviderDrain {
   const measured = measureDrain(history, nowMs - lookbackMs, nowMs);
   const windowAverage = live.reduce((total, reading) => total + (reading.averagePerHour ?? 0), 0);
-  // Without enough provider history: each account's own rate (measured or average).
   const accountRates = live.reduce((total, reading) => total + (reading.ratePerHour ?? 0), 0);
-  // Like each account: the faster of the measured rate and the window rates.
-  if (measured && measured.coveredMs >= enoughMs && measured.ratePerHour > accountRates) {
+  const hasAccountRate = live.some((reading) => reading.ratePerHour !== null);
+  if (!hasAccountRate && measured && measured.coveredMs >= enoughMs) {
     return {
       ratePerHour: measured.ratePerHour,
       source: 'history',

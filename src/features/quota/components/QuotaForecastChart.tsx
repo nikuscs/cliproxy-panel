@@ -22,6 +22,13 @@ const PAD = { top: 10, right: 8, bottom: 22, left: 44 };
 const TICK_STEPS = [1, 3, 6, 12, 24, 48].map((hours) => hours * HOUR_MS);
 const MAX_X_TICKS = 6;
 
+/** A dashed line where accounts hit their limit; `warn` (yellow) while others still cover. */
+export interface ChartMarker {
+  atMs: number;
+  label: string;
+  tone: 'warn' | 'out';
+}
+
 export interface QuotaForecastChartProps {
   height: number;
   startMs: number;
@@ -42,8 +49,8 @@ export interface QuotaForecastChartProps {
   reference?: { value: number; label: string } | null;
   /** Short inline note over an empty plot ("Measuring… 3 readings so far"). */
   note?: string | null;
-  /** When the quota hits its limit at this pace: a red line with a label. */
-  marker?: { atMs: number; label: string } | null;
+  /** When accounts hit their limit at this pace: dashed lines with a label. */
+  markers?: ChartMarker[];
 }
 
 function useWidth() {
@@ -93,7 +100,7 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
   const compact = props.compact === true;
   const reference = props.reference ?? null;
   const note = props.note ?? null;
-  const marker = props.marker && props.marker.atMs <= endMs ? props.marker : null;
+  const markers = (props.markers ?? []).filter((marker) => marker.atMs <= endMs);
   const { i18n, t } = useTranslation();
   const gradientId = useId();
   const { ref, width } = useWidth();
@@ -257,8 +264,11 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
             </text>
           )}
 
-          {marker && (
-            <g>
+          {markers.map((marker) => (
+            <g
+              key={marker.label}
+              className={marker.tone === 'warn' ? styles.markerWarn : undefined}
+            >
               <line
                 className={styles.limitLine}
                 x1={x(marker.atMs)}
@@ -270,7 +280,7 @@ export function QuotaForecastChart(props: QuotaForecastChartProps) {
                 {marker.label}
               </text>
             </g>
-          )}
+          ))}
 
           <line className={styles.nowLine} x1={nowX} x2={nowX} y1={PAD.top} y2={baseline} />
           <text

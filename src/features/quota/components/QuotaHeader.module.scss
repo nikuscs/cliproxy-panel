@@ -81,6 +81,60 @@
   flex-shrink: 0;
 }
 
+/* Used / remaining switch, same look as the config page mode switch. */
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+}
+
+.segment {
+  height: 100%;
+  padding: 0 14px;
+  border: 0;
+  border-radius: $radius-full;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    color var(--dur-hover) var(--ease-out-strong),
+    background-color var(--dur-hover) var(--ease-out-strong),
+    transform var(--dur-press) var(--ease-out-strong);
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -1px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .segment:hover:not(.segmentActive) {
+    color: var(--text-primary);
+  }
+}
+
+.segmentActive {
+  color: var(--text-primary);
+  font-weight: 650;
+  background: var(--floating-surface, var(--bg-primary));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
 /* Outline pill next to the primary action (email reveal toggle). */
 .secondaryAction {
   display: inline-flex;
@@ -175,8 +229,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primaryAction {
+  .primaryAction,
+  .segment {
     transition: none;
+  }
+
+  .segment:active {
+    transform: none;
   }
 
   .primaryAction:active:not(:disabled) {

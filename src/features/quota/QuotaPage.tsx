@@ -57,7 +57,7 @@ import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { stripCredentialExtension } from './display';
 import { PrivacyContext } from './privacy';
-import { MeterDisplayContext, QUOTA_DISPLAY_MODES, type QuotaDisplayMode } from './meterDisplay';
+import { MeterDisplayContext } from './meterDisplay';
 import { quotaObservedAt, useQuotaCache } from './hooks/useQuotaCache';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
@@ -344,14 +344,6 @@ export function QuotaPage() {
     [t]
   );
 
-  const displayOptions = useMemo(
-    () =>
-      QUOTA_DISPLAY_MODES.map((mode) => ({
-        value: mode,
-        label: t(`quota_management.display_${mode}`),
-      })),
-    [t]
-  );
   const meterDisplay = useMemo(
     () => ({ mode: preferences.displayMode, atPace: new Set<string>() }),
     [preferences.displayMode]
@@ -584,6 +576,8 @@ export function QuotaPage() {
             disableControls={disableControls}
             showEmails={preferences.showEmails}
             onToggleEmails={() => updatePreferences({ showEmails: !preferences.showEmails })}
+            displayMode={preferences.displayMode}
+            onDisplayModeChange={(displayMode) => updatePreferences({ displayMode })}
             onRefreshAll={handleRefreshAll}
           />
 
@@ -671,18 +665,6 @@ export function QuotaPage() {
                 )}
               </div>
               <div className={styles.sort}>
-                <Select
-                  value={preferences.displayMode}
-                  options={displayOptions}
-                  onChange={(value) =>
-                    updatePreferences({ displayMode: value as QuotaDisplayMode })
-                  }
-                  ariaLabel={t('quota_management.display_label')}
-                  className={styles.quietSelect}
-                  menuClassName={styles.quietMenu}
-                  fullWidth={false}
-                  size="sm"
-                />
                 <Select
                   value={viewMode}
                   options={viewOptions}
