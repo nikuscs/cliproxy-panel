@@ -372,7 +372,7 @@
   font-size: 13px;
 }
 
-/* The outlook table: muted labels, short values; dotted values have a tooltip. */
+/* The outlook table: muted labels, short values; dotted values have a popover. */
 .outlook {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -418,13 +418,6 @@
   .toneOk {
     color: color-mix(in srgb, var(--viz-success) 70%, var(--text-tertiary));
   }
-}
-
-.hasDetail {
-  cursor: help;
-  text-decoration: underline dotted;
-  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
-  text-underline-offset: 3px;
 }
 
 .settingsToggle {

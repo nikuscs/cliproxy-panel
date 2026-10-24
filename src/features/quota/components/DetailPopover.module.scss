@@ -1,0 +1,47 @@
+/* A value with a detail popover: dotted underline, glass bubble below it. */
+
+.trigger {
+  cursor: help;
+  border-radius: 2px;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.popover {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid var(--glass-border);
+  border-radius: $radius-md;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-line;
+  pointer-events: none;
+  animation: detail-in var(--dur-hover) var(--ease-out-strong);
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}

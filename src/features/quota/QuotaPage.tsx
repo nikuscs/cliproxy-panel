@@ -383,8 +383,7 @@ export function QuotaPage() {
   } = useQuotaHistory(
     connection,
     providersWithCredentials,
-    clockNow -
-      Math.max(preferences.forecastRangeDays * DAY_MS, preferences.forecastLookbackHours * HOUR_MS),
+    clockNow - Math.max(7 * DAY_MS, preferences.forecastLookbackHours * HOUR_MS),
     historyRevision + seedRevision
   );
 
@@ -622,12 +621,8 @@ export function QuotaPage() {
                     resolvedTheme={resolvedTheme}
                     layout={tab === 'all' ? 'split' : 'stacked'}
                     chartHeight={tab === 'all' ? ALL_TAB_CHART_HEIGHT : PROVIDER_TAB_CHART_HEIGHT}
-                    rangeDays={preferences.forecastRangeDays}
                     lookbackHours={preferences.forecastLookbackHours}
                     collapsed={preferences.collapsedForecasts.includes(group.provider)}
-                    onRangeDaysChange={(forecastRangeDays) =>
-                      updatePreferences({ forecastRangeDays })
-                    }
                     onLookbackHoursChange={(forecastLookbackHours) =>
                       updatePreferences({ forecastLookbackHours })
                     }

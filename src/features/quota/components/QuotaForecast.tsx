@@ -18,11 +18,9 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
   FORECAST_ACCENTS,
   FORECAST_LOOKBACK_HOURS,
-  FORECAST_RANGE_DAYS,
   DRAIN_RANGE_HOURS,
   type DrainRangeHours,
   type ForecastLookbackHours,
-  type ForecastRangeDays,
 } from '../constants';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -55,6 +53,7 @@ import {
 import { usePrivacyRevealed } from '../privacy';
 import { useMeterDisplay } from '../meterDisplay';
 import { ProviderIcon } from './ProviderIcon';
+import { DetailPopover } from './DetailPopover';
 import { QuotaForecastChart, type ChartMarker } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
 
@@ -75,10 +74,8 @@ export interface QuotaForecastProps {
    */
   layout: 'stacked' | 'split';
   chartHeight: number;
-  rangeDays: ForecastRangeDays;
   lookbackHours: ForecastLookbackHours;
   collapsed: boolean;
-  onRangeDaysChange: (days: ForecastRangeDays) => void;
   onLookbackHoursChange: (hours: ForecastLookbackHours) => void;
   onCollapsedChange: (collapsed: boolean) => void;
 }
@@ -101,8 +98,8 @@ function closerToRunningOut(
   return share(session) < share(weekly) ? 'session' : 'weekly';
 }
 
-/** The 5-hour view always looks one day ahead. */
-const SESSION_RANGE_MS = DAY_MS;
+/** How far each view looks ahead: a day for 5-hour windows, a week for weekly. */
+const RANGE_DAYS: Record<ForecastWindow, 1 | 7> = { session: 1, weekly: 7 };
 
 /** Upper bound for the drain axis whose quarter ticks stay round. */
 const niceCeil = (value: number) => {
@@ -136,7 +133,7 @@ function outlookTone(forecast: QuotaForecastModel, accounts: number): OutlookTon
 
 /**
  * The outlook as a small table, short values first; exact times and the
- * per-account split are in each value's tooltip. Rows take the outlook's tone.
+ * per-account split are in each value's popover. Rows take the outlook's tone.
  * - Free now: "286% on 5 of 6 accounts", when any account is at 0%.
  * - Limit hit: "1 of 2 accounts · resets in 26m", when any account is at 0%. The
  *   one-account key avoids a `_one` suffix: i18next reads that as the plural
@@ -157,7 +154,7 @@ function Outlook({
 }) {
   const { t, i18n } = useTranslation();
   const { mode } = useMeterDisplay();
-  // A native tooltip can't blur: name accounts only when revealed.
+  // The popover can't blur one name: name accounts only when revealed.
   const revealed = usePrivacyRevealed();
   const duration = (atMs: number) => formatCompactDuration(atMs - nowMs);
   const time = (atMs: number) => formatOutlookTime(atMs, i18n.language);
@@ -256,11 +253,12 @@ function Outlook({
       {rows.map((row) => (
         <div key={row.label} className={styles.outlookRow}>
           <dt>{row.label}</dt>
-          <dd
-            className={[row.tone, row.detail ? styles.hasDetail : ''].filter(Boolean).join(' ')}
-            title={row.detail}
-          >
-            {row.value}
+          <dd className={row.tone}>
+            {row.detail ? (
+              <DetailPopover detail={row.detail}>{row.value}</DetailPopover>
+            ) : (
+              row.value
+            )}
           </dd>
         </div>
       ))}
@@ -279,10 +277,8 @@ export function QuotaForecast(props: QuotaForecastProps) {
     resolvedTheme,
     layout,
     chartHeight,
-    rangeDays,
     lookbackHours,
     collapsed,
-    onRangeDaysChange,
     onLookbackHoursChange,
     onCollapsedChange,
   } = props;
@@ -295,7 +291,6 @@ export function QuotaForecast(props: QuotaForecastProps) {
   /** The user's drain-chart range; null follows the recorded history. */
   const [drainRangeChoice, setDrainRangeChoice] = useState<DrainRangeHours | null>(null);
 
-  const weeklyRangeMs = rangeDays * DAY_MS;
   const accent = FORECAST_ACCENTS[provider];
   const lookbackMs = lookbackHours * HOUR_MS;
 
@@ -304,7 +299,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
   const views = useMemo(() => {
     const build = (window: ForecastWindow) => {
       // A 5-hour sawtooth is unreadable over a week: that view is the next 24h.
-      const rangeMs = window === 'session' ? SESSION_RANGE_MS : weeklyRangeMs;
+      const rangeMs = RANGE_DAYS[window] * DAY_MS;
       const pastMs = rangeMs / 6;
       const windowHistory = snapshotsForWindow(history, window);
       const live = entries
@@ -343,7 +338,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
       return { live, forecast, rangeMs, pastMs, windowHistory };
     };
     return { weekly: build('weekly'), session: build('session') };
-  }, [entries, history, lookbackMs, nowMs, quotaFor, snapshotsFor, weeklyRangeMs]);
+  }, [entries, history, lookbackMs, nowMs, quotaFor, snapshotsFor]);
 
   const hasSession = views.session.live.length > 0;
   const window: ForecastWindow =
@@ -367,10 +362,6 @@ export function QuotaForecast(props: QuotaForecastProps) {
     [windowHistory, nowMs, drainRange]
   );
 
-  const rangeOptions = FORECAST_RANGE_DAYS.map((days) => ({
-    value: String(days),
-    label: t(`quota_management.forecast_range_${days}`),
-  }));
   const drainRangeOptions = DRAIN_RANGE_HOURS.map((hours) => ({
     value: String(hours),
     label: t(`quota_management.forecast_drain_range_${hours}`),
@@ -563,22 +554,9 @@ export function QuotaForecast(props: QuotaForecastProps) {
             {chartIsRemaining ? (
               <div className={styles.range}>
                 <span>{t('quota_management.forecast_next')}</span>
-                {window === 'session' ? (
-                  <span className={styles.rangeFixed}>
-                    {t('quota_management.forecast_range_1')}
-                  </span>
-                ) : (
-                  <Select
-                    value={String(rangeDays)}
-                    options={rangeOptions}
-                    onChange={(value) => onRangeDaysChange(Number(value) as ForecastRangeDays)}
-                    ariaLabel={t('quota_management.forecast_range_label')}
-                    className={styles.quietSelect}
-                    menuClassName={styles.quietMenu}
-                    fullWidth={false}
-                    size="sm"
-                  />
-                )}
+                <span className={styles.rangeFixed}>
+                  {t(`quota_management.forecast_range_${RANGE_DAYS[window]}`)}
+                </span>
               </div>
             ) : (
               <div className={styles.range}>

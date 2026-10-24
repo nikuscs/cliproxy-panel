@@ -1,11 +1,9 @@
 import {
   FORECAST_LOOKBACK_HOURS,
-  FORECAST_RANGE_DAYS,
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
   QUOTA_VIEW_MODES,
   type ForecastLookbackHours,
-  type ForecastRangeDays,
   type QuotaSortMode,
   type QuotaTabId,
   type QuotaViewMode,
@@ -75,7 +73,6 @@ export type QuotaPreferences = {
   viewMode: QuotaViewMode;
   /** View on the All tab (upstream card grid by default). */
   allViewMode: QuotaViewMode;
-  forecastRangeDays: ForecastRangeDays;
   forecastLookbackHours: ForecastLookbackHours;
   /** Providers whose forecast panel is collapsed. */
   collapsedForecasts: QuotaProviderType[];
@@ -90,7 +87,6 @@ const DEFAULT_QUOTA_PREFERENCES: QuotaPreferences = {
   displayMode: 'used',
   viewMode: 'ledger',
   allViewMode: 'cards',
-  forecastRangeDays: 7,
   forecastLookbackHours: 24,
   collapsedForecasts: [],
   knownProviders: [],
@@ -114,11 +110,6 @@ export const readQuotaPreferences = (): QuotaPreferences => {
       displayMode: oneOf(QUOTA_DISPLAY_MODES, parsed.displayMode, defaults.displayMode),
       viewMode: oneOf(QUOTA_VIEW_MODES, parsed.viewMode, defaults.viewMode),
       allViewMode: oneOf(QUOTA_VIEW_MODES, parsed.allViewMode, defaults.allViewMode),
-      forecastRangeDays: oneOf(
-        FORECAST_RANGE_DAYS,
-        parsed.forecastRangeDays,
-        defaults.forecastRangeDays
-      ),
       forecastLookbackHours: oneOf(
         FORECAST_LOOKBACK_HOURS,
         parsed.forecastLookbackHours,

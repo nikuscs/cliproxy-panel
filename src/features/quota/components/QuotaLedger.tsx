@@ -22,6 +22,7 @@ import {
   readQuotaMeters,
   type QuotaMeterReading,
 } from '../forecast/quotaMeters';
+import { DetailPopover } from './DetailPopover';
 import { QUOTA_PROGRESS_HIGH_THRESHOLD, QUOTA_PROGRESS_MEDIUM_THRESHOLD } from './QuotaMeter';
 import { QuotaEntryActions } from './QuotaEntryActions';
 import { QuotaPrediction } from './QuotaPrediction';
@@ -64,7 +65,7 @@ const fillClass = (remaining: number) =>
       ? styles.fillMedium
       : styles.fillLow;
 
-/** The meter's burn rate, e.g. `0.8%/h`; the tooltip says what backs it. */
+/** The meter's burn rate, e.g. `0.8%/h`; its popover says what backs it. */
 function MeterRate({ meter, rate }: { meter: QuotaMeterReading; rate: ResolvedRate }) {
   const { t } = useTranslation();
   if (!rate.ratePerHour || meter.remaining <= 0) return null;
@@ -75,9 +76,9 @@ function MeterRate({ meter, rate }: { meter: QuotaMeterReading; rate: ResolvedRa
         })
       : t('quota_management.forecast_rate_source_window');
   return (
-    <span className={styles.meterRate} title={source}>
+    <DetailPopover detail={source} className={styles.meterRate}>
       {formatRate(rate.ratePerHour)}/h
-    </span>
+    </DetailPopover>
   );
 }
 

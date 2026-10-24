@@ -33,11 +33,6 @@ export const QUOTA_VIEW_MODES = ['ledger', 'cards'] as const;
 
 export type QuotaViewMode = (typeof QUOTA_VIEW_MODES)[number];
 
-/** Forecast horizons offered by the "Next" select, in days. */
-export const FORECAST_RANGE_DAYS = [1, 7] as const;
-
-export type ForecastRangeDays = (typeof FORECAST_RANGE_DAYS)[number];
-
 /** Drain-rate lookback choices, in hours. */
 export const FORECAST_LOOKBACK_HOURS = [6, 24, 72] as const;
 
