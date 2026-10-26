@@ -84,6 +84,26 @@ export interface QuotaForecastProps {
  * The window to show by default: the one whose first account runs out
  * sooner; if neither runs out, the one with less left (as a share).
  */
+/**
+ * The plugin these entries belong to, when they agree on one.
+ *
+ * Every plugin-backed credential shares the single `plugin` provider, so the
+ * panel header reads "Plugin" whichever plugin it actually is. Naming it after
+ * the plugin is the difference between "Plugin" and "Cursor". Entries from two
+ * different plugins keep the generic name rather than picking a winner.
+ */
+function quotaPluginName(entries: QuotaFileEntry[]): string | null {
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    const file = entry.file as { quotaPluginId?: unknown; quota_plugin_id?: unknown };
+    const id = file.quotaPluginId ?? file['quota_plugin_id'];
+    if (typeof id === 'string' && id.trim()) ids.add(id.trim());
+  }
+  if (ids.size !== 1) return null;
+  const [only] = [...ids];
+  return only ?? null;
+}
+
 function closerToRunningOut(
   weekly: QuotaForecastModel,
   session: QuotaForecastModel | null
@@ -370,7 +390,7 @@ export function QuotaForecast(props: QuotaForecastProps) {
     value: String(hours),
     label: t(`quota_management.forecast_lookback_${hours}`),
   }));
-  const providerName = getTypeLabel(t, provider);
+  const providerName = getTypeLabel(t, quotaPluginName(entries) ?? provider);
   const split = layout === 'split';
   const providerLabel = split ? (
     <span className={styles.provider}>
